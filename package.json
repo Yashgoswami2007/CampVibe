@@ -10,8 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test",
-    "test:coverage": "tsx --test --experimental-test-coverage"
+    "test": "tsx --test tests/dates.test.ts tests/conflicts.test.ts tests/scoring.test.ts tests/storage.test.ts",
+    "test:coverage": "tsx --test --experimental-test-coverage tests/dates.test.ts tests/conflicts.test.ts tests/scoring.test.ts tests/storage.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

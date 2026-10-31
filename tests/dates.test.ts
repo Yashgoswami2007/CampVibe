@@ -155,3 +155,67 @@ describe('iCalendar export', () => {
     assert.ok(ics.includes('\r\n'));
   });
 });
+
+
+describe('additional status edge cases', () => {
+  it('marks a deadline within seven days as upcoming', () => {
+    const status = calculateAnnouncementStatus(makeAnnouncement({ registration_deadline: '2026-11-05T18:00:00' }), fixedNow);
+    assert.equal(status.urgency, 'upcoming');
+    assert.equal(status.isRegistrationClosed, false);
+  });
+
+  it('marks an event happening within the next twelve hours as urgent', () => {
+    const status = calculateAnnouncementStatus(makeAnnouncement({ event_date: '2026-10-31', event_time: '5:00 PM' }), fixedNow);
+    assert.equal(status.urgency, 'urgent');
+    assert.equal(status.badgeLabel, 'Today');
+  });
+
+  it('marks an event as passed after its event window', () => {
+    const status = calculateAnnouncementStatus(makeAnnouncement({ event_date: '2026-10-30', event_time: '9:00 AM' }), fixedNow);
+    assert.equal(status.isEventPassed, true);
+  });
+
+  it('keeps a future event active when registration has already closed', () => {
+    const status = calculateAnnouncementStatus(makeAnnouncement({
+      registration_deadline: '2026-10-30',
+      event_date: '2026-11-05',
+      event_time: '10:00 AM',
+    }), fixedNow);
+    assert.equal(status.isRegistrationClosed, true);
+    assert.equal(status.isEventPassed, false);
+    assert.equal(status.badgeLabel, 'Reg. Closed');
+  });
+
+  it('treats a notice without dates as an ongoing opportunity', () => {
+    const status = calculateAnnouncementStatus(makeAnnouncement(), fixedNow);
+    assert.equal(status.urgency, 'active');
+    assert.equal(status.badgeLabel, 'Opportunity');
+  });
+
+  it('applies an explicit urgency reason to a deadline notice', () => {
+    const status = calculateAnnouncementStatus(makeAnnouncement({
+      kind: 'deadline',
+      urgency_reason: 'Limited seats available',
+    }), fixedNow);
+    assert.equal(status.urgency, 'urgent');
+    assert.equal(status.badgeLabel, 'Urgent Notice');
+  });
+
+  it('honors a valid manual priority override', () => {
+    assert.equal(getAnnouncementPriority(makeAnnouncement({ priority_override: 'Critical' }), false, fixedNow), 'Critical');
+  });
+
+  it('returns Upcoming for a registration deadline several days away', () => {
+    assert.equal(getAnnouncementPriority(makeAnnouncement({ registration_deadline: '2026-11-05T18:00:00' }), false, fixedNow), 'Upcoming');
+  });
+
+  it('uses registration deadline as the calendar event date when no event date exists', () => {
+    const ics = generateICS(makeAnnouncement({
+      id: 'deadline-only',
+      title: 'Submission Deadline',
+      registration_deadline: '2026-11-05T18:00:00',
+    }));
+    assert.match(ics, /UID:deadline-only@campusradar\.app/);
+    assert.match(ics, /DTSTART:20261105T/);
+  });
+});

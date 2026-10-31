@@ -200,3 +200,84 @@ describe('backup and reset behavior', () => {
     assert.deepEqual(StorageService.getOpportunityStates(), {});
   });
 });
+
+
+describe('notification and digest persistence', () => {
+  it('marks every notification as read', () => {
+    const initial = StorageService.getNotifications();
+    assert.ok(initial.some((item) => !item.read));
+    const updated = StorageService.markAllNotificationsRead();
+    assert.ok(updated.every((item) => item.read));
+    assert.equal(StorageService.getNotifications().filter((item) => !item.read).length, 0);
+  });
+
+  it('clears notifications and persists the empty list', () => {
+    StorageService.getNotifications();
+    assert.equal(StorageService.clearNotifications().length, 0);
+    assert.deepEqual(StorageService.getNotifications(), []);
+  });
+
+  it('saves and retrieves notification arrays', () => {
+    const notifications = [{
+      id: 'custom-notification',
+      title: 'Test reminder',
+      message: 'Run the regression tests.',
+      type: 'event' as const,
+      timestamp: '2026-10-31T00:00:00.000Z',
+      read: false,
+    }];
+    StorageService.saveNotifications(notifications);
+    assert.deepEqual(StorageService.getNotifications(), notifications);
+  });
+
+  it('saves and retrieves a cached digest', () => {
+    const digest = {
+      headline: 'A focused test week',
+      summary: 'Review upcoming campus activities.',
+      must_do: [],
+      days: [],
+      heads_up: [],
+      generated_at: '2026-10-31T00:00:00.000Z',
+    };
+    StorageService.saveDigest(digest);
+    assert.deepEqual(StorageService.getCachedDigest(), digest);
+  });
+
+  it('returns null for an invalid cached digest', () => {
+    values.set('campus_radar_v1_digest', '{bad json');
+    assert.equal(StorageService.getCachedDigest(), null);
+  });
+
+  it('stores and reads the onboarding flag', () => {
+    StorageService.setOnboarded(true);
+    assert.equal(StorageService.isOnboarded(), true);
+    StorageService.setOnboarded(false);
+    assert.equal(StorageService.isOnboarded(), false);
+  });
+});
+
+describe('storage resilience', () => {
+  it('recovers from malformed notification JSON using defaults', () => {
+    values.set('campus_radar_v1_notifications', '{broken');
+    const notifications = StorageService.getNotifications();
+    assert.ok(Array.isArray(notifications));
+    assert.ok(notifications.length > 0);
+  });
+
+  it('returns empty opportunity states when stored JSON is invalid', () => {
+    values.set('campus_radar_v1_opportunities', '{broken');
+    assert.deepEqual(StorageService.getOpportunityStates(), {});
+  });
+
+  it('returns the default profile when stored profile JSON is invalid', () => {
+    values.set('campus_radar_v1_profile', '{broken');
+    assert.equal(StorageService.getProfile().id, 'demo-profile-1');
+  });
+
+  it('deduplicates recent searches case-insensitively', () => {
+    StorageService.addRecentSearch('Hackathon');
+    StorageService.addRecentSearch('hackathon');
+    const searches = StorageService.getRecentSearches();
+    assert.equal(searches.filter((term) => term.toLowerCase() === 'hackathon').length, 1);
+  });
+});

@@ -82,3 +82,44 @@ describe('announcement duplicate detection', () => {
     );
   });
 });
+
+
+describe('schedule conflict checks', () => {
+  it('reports same-day notices when both provide event times', () => {
+    const existing = makeAnnouncement({
+      id: 'same-day',
+      title: 'Robotics Demonstration',
+      event_date: '2026-11-12',
+      event_time: '9:00 AM',
+    });
+    const result = checkConflictsAndDuplicates(makeAnnouncement({
+      title: 'Database Seminar',
+      event_date: '2026-11-12',
+      event_time: '4:00 PM',
+    }), [existing]);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].type, 'schedule_conflict');
+    assert.match(result[0].message, /same date/);
+  });
+
+  it('does not report a schedule conflict when either time is missing', () => {
+    const existing = makeAnnouncement({
+      id: 'no-time',
+      title: 'Robotics Demonstration',
+      event_date: '2026-11-12',
+      event_time: null,
+    });
+    const result = checkConflictsAndDuplicates(makeAnnouncement({
+      title: 'Database Seminar',
+      event_date: '2026-11-12',
+      event_time: '4:00 PM',
+    }), [existing]);
+    assert.deepEqual(result, []);
+  });
+
+  it('does not report a duplicate for unrelated titles', () => {
+    const existing = makeAnnouncement({ id: 'unrelated', title: 'Classical Music Evening' });
+    const result = checkConflictsAndDuplicates(makeAnnouncement({ title: 'Robotics Engineering Expo' }), [existing]);
+    assert.deepEqual(result, []);
+  });
+});
