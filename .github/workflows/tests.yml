@@ -1,0 +1,36 @@
+name: Automated tests
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unit tests, coverage, typecheck, and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run unit tests with coverage
+        run: bun run test:coverage
+
+      - name: Type-check the project
+        run: bun run lint
+
+      - name: Verify production build
+        run: bun run build
