@@ -1,0 +1,564 @@
+import express, { Request, Response } from 'express';
+import { createServer as createViteServer } from 'vite';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import { GoogleGenAI, Type } from '@google/genai';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Initialize Google GenAI client
+const apiKey = process.env.GEMINI_API_KEY || '';
+const ai = apiKey
+  ? new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    })
+  : null;
+
+// JSON schema for Extraction
+const extractionResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    is_notice: { type: Type.BOOLEAN, description: 'Whether the text is a campus notice, event, or announcement' },
+    not_a_notice_reason: { type: Type.STRING, description: 'Explanation if the text is not a campus notice' },
+    items: {
+      type: Type.ARRAY,
+      description: 'Extracted campus announcements (1 or more if batch paste)',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING, description: 'Clear, concise title of the announcement' },
+          description: { type: Type.STRING, description: 'Accurate summary of key details' },
+          kind: {
+            type: Type.STRING,
+            enum: ['event', 'deadline', 'announcement', 'opportunity'],
+            description: 'deadline = registration/submission cutoff; event = occurs at time/place; opportunity = application open; announcement = info only',
+          },
+          category: {
+            type: Type.STRING,
+            enum: [
+              'Technology',
+              'Artificial Intelligence',
+              'Machine Learning',
+              'Web Development',
+              'Hackathons',
+              'Internships',
+              'Placements',
+              'Entrepreneurship',
+              'Cultural Activities',
+              'Sports',
+              'Research',
+              'Workshops',
+              'Academics',
+              'Other',
+            ],
+          },
+          organizer: { type: Type.STRING, description: 'Club, department, society, or faculty organizing this' },
+          event_date: { type: Type.STRING, description: 'YYYY-MM-DD format if mentioned, null otherwise' },
+          event_time: { type: Type.STRING, description: 'Time string (e.g. 10:00 AM or 14:00) if mentioned, null otherwise' },
+          registration_deadline: { type: Type.STRING, description: 'YYYY-MM-DD or YYYY-MM-DD HH:mm if mentioned, null otherwise' },
+          venue: { type: Type.STRING, description: 'Location, room, hall, or lab if stated, null otherwise' },
+          eligibility: { type: Type.STRING, description: 'Eligible branches, CGPA, or batch years if stated, null otherwise' },
+          target_departments: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: 'Explicitly mentioned branches/departments, or ["All"]',
+          },
+          target_years: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: 'Explicitly mentioned years e.g. ["2nd Year", "3rd Year"], or ["All"]',
+          },
+          required_action: { type: Type.STRING, description: 'Concrete action student must take (register, bring ID, etc.)' },
+          urgency_reason: { type: Type.STRING, description: 'Why this requires quick attention if applicable' },
+          registration_url: { type: Type.STRING, description: 'Extracted URL if present in the text, null otherwise' },
+          tags: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: '3 to 5 key topical tags',
+          },
+          evidence: {
+            type: Type.OBJECT,
+            properties: {
+              event_date: { type: Type.STRING },
+              event_time: { type: Type.STRING },
+              registration_deadline: { type: Type.STRING },
+              venue: { type: Type.STRING },
+              eligibility: { type: Type.STRING },
+              required_action: { type: Type.STRING },
+            },
+            description: 'Verbatim quoted substrings from original text substantiating each extracted field',
+          },
+          date_resolution: {
+            type: Type.OBJECT,
+            properties: {
+              phrase: { type: Type.STRING, description: 'The original date phrase like "tomorrow" or "next Friday"' },
+              method: { type: Type.STRING, enum: ['relative', 'absolute', 'inferred'] },
+              assumption: { type: Type.STRING, description: 'Explanation of how the date was resolved' },
+            },
+          },
+          missing_fields: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: 'List of important fields that were not mentioned (e.g. venue, registration deadline, organizer)',
+          },
+          warnings: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: 'Any ambiguities, date clashes, or missing links mentioned in text',
+          },
+          confidence: {
+            type: Type.OBJECT,
+            properties: {
+              overall: { type: Type.NUMBER, description: '0 to 100 confidence score' },
+              date: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+              venue: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+              required_action: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+            },
+          },
+        },
+        required: ['title', 'description', 'kind', 'category', 'organizer'],
+      },
+    },
+  },
+  required: ['is_notice'],
+};
+
+// JSON schema for Weekly Digest
+const digestResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    headline: { type: Type.STRING, description: 'A sharp, motivational 1-sentence weekly headline for this student' },
+    summary: { type: Type.STRING, description: '2-3 sentence executive summary of this week campus dynamics' },
+    must_do: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          id: { type: Type.STRING, description: 'The exact announcement ID' },
+          title: { type: Type.STRING, description: 'Title of the announcement' },
+          line: { type: Type.STRING, description: 'Action-oriented line explaining what to do and when' },
+          deadline: { type: Type.STRING, description: 'Deadline date/time string' },
+        },
+        required: ['id', 'title', 'line'],
+      },
+    },
+    days: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          date: { type: Type.STRING, description: 'YYYY-MM-DD' },
+          weekday: { type: Type.STRING, description: 'Day name (e.g. Monday, Friday)' },
+          items: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING, description: 'Exact announcement ID' },
+                title: { type: Type.STRING },
+                text: { type: Type.STRING },
+                time: { type: Type.STRING },
+                venue: { type: Type.STRING },
+                category: { type: Type.STRING },
+              },
+              required: ['id', 'title', 'text'],
+            },
+          },
+        },
+        required: ['date', 'weekday', 'items'],
+      },
+    },
+    heads_up: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          text: { type: Type.STRING, description: 'Heads-up note regarding upcoming deadlines or preparations' },
+          related_ids: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+        required: ['text', 'related_ids'],
+      },
+    },
+  },
+  required: ['headline', 'summary', 'must_do', 'days', 'heads_up'],
+};
+
+// Fallback deterministic extraction when Gemini is unreachable or error occurs
+function createFallbackExtraction(text: string, today: string) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const title = lines[0] ? lines[0].slice(0, 80) : 'Campus Announcement';
+  
+  // Extract URL if present
+  const urlMatch = text.match(/https?:\/\/[^\s]+/i);
+  const registration_url = urlMatch ? urlMatch[0] : null;
+
+  // Extract time if present
+  const timeMatch = text.match(/(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm))/);
+  const event_time = timeMatch ? timeMatch[1] : null;
+
+  // Basic category heuristic
+  let category = 'Academics';
+  const lower = text.toLowerCase();
+  if (lower.includes('hackathon')) category = 'Hackathons';
+  else if (lower.includes('internship') || lower.includes('stipend')) category = 'Internships';
+  else if (lower.includes('placement') || lower.includes('interview')) category = 'Placements';
+  else if (lower.includes('workshop') || lower.includes('hands-on')) category = 'Workshops';
+  else if (lower.includes('ai') || lower.includes('machine learning')) category = 'Artificial Intelligence';
+  else if (lower.includes('cricket') || lower.includes('sports')) category = 'Sports';
+  else if (lower.includes('dance') || lower.includes('fest') || lower.includes('music')) category = 'Cultural Activities';
+  else if (lower.includes('e-cell') || lower.includes('startup') || lower.includes('pitch')) category = 'Entrepreneurship';
+
+  return {
+    is_notice: true,
+    items: [
+      {
+        title,
+        description: text.slice(0, 300),
+        kind: lower.includes('deadline') || lower.includes('last date') ? 'deadline' : 'event',
+        category,
+        organizer: 'Campus Organizer',
+        event_date: today,
+        event_time,
+        registration_deadline: null,
+        venue: null,
+        eligibility: 'All students',
+        target_departments: ['All'],
+        target_years: ['All'],
+        required_action: registration_url ? 'Register via link' : 'Check with organizer',
+        urgency_reason: lower.includes('urgent') ? 'Marked urgent in original post' : null,
+        registration_url,
+        tags: [category, 'Campus'],
+        evidence: {},
+        date_resolution: {
+          phrase: 'today',
+          method: 'inferred',
+          assumption: 'Extracted via fallback parser',
+        },
+        missing_fields: ['venue', 'registration_deadline'],
+        warnings: ['Parsed with offline fallback parser. Please review and verify all fields.'],
+        confidence: {
+          overall: 70,
+          date: 'medium',
+          venue: 'low',
+          required_action: 'medium',
+        },
+      },
+    ],
+  };
+}
+
+// Fallback deterministic digest generator
+function createFallbackDigest(notices: any[], profile: any, todayStr: string) {
+  const sorted = [...notices].sort((a, b) => {
+    const da = a.registration_deadline || a.event_date || '9999';
+    const db = b.registration_deadline || b.event_date || '9999';
+    return da.localeCompare(db);
+  });
+
+  const must_do = sorted.slice(0, 3).map(n => ({
+    id: n.id,
+    title: n.title,
+    line: n.required_action || `Review and act on ${n.title}`,
+    deadline: n.registration_deadline || n.event_date || 'Upcoming',
+  }));
+
+  const dayMap: Record<string, any[]> = {};
+  sorted.forEach(n => {
+    const d = n.event_date || n.registration_deadline?.split(' ')[0] || todayStr;
+    if (!dayMap[d]) dayMap[d] = [];
+    dayMap[d].push({
+      id: n.id,
+      title: n.title,
+      text: n.description?.slice(0, 100) || n.title,
+      time: n.event_time || undefined,
+      venue: n.venue || undefined,
+      category: n.category,
+    });
+  });
+
+  const days = Object.entries(dayMap).slice(0, 4).map(([date, items]) => {
+    const dateObj = new Date(date);
+    const weekday = !isNaN(dateObj.getTime())
+      ? dateObj.toLocaleDateString('en-US', { weekday: 'long' })
+      : 'Upcoming';
+    return { date, weekday, items };
+  });
+
+  return {
+    headline: `Focus on ${sorted[0]?.title || 'upcoming deadlines'} this week, ${profile?.name?.split(' ')[0] || 'student'}.`,
+    summary: `You have ${sorted.length} active opportunities tailored to your ${profile?.department || 'engineering'} track. Stay on top of your deadlines to avoid missing registrations.`,
+    must_do,
+    days,
+    heads_up: [
+      {
+        text: 'Registrations are filling quickly for technical workshops and hackathons. Confirm your participation early.',
+        related_ids: sorted.slice(0, 2).map(n => n.id),
+      },
+    ],
+  };
+}
+
+async function callGeminiWithRetry(params: any, timeoutMs = 9000, maxRetries = 1): Promise<any> {
+  if (!ai) return null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const callPromise = ai.models.generateContent(params);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Gemini call timed out after ${timeoutMs}ms`)), timeoutMs)
+      );
+      return await Promise.race([callPromise, timeoutPromise]);
+    } catch (err: any) {
+      if (attempt < maxRetries) {
+        console.warn(`[Gemini API] Attempt ${attempt + 1} failed (${err?.message || err}). Retrying in 800ms...`);
+        await new Promise(r => setTimeout(r, 800));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+async function startServer() {
+  const app = express();
+  const PORT = Number(process.env.PORT) || 3000;
+
+  app.use(express.json({ limit: '2mb' }));
+
+  // API Health Check
+  app.get('/api/health', (req: Request, res: Response) => {
+    res.json({
+      status: 'ok',
+      service: 'Campus Radar API',
+      aiConfigured: Boolean(ai),
+      model: 'gemini-3.8-flash',
+      serverTime: new Date().toISOString(),
+    });
+  });
+
+  // POST /api/extract
+  app.post('/api/extract', async (req: Request, res: Response) => {
+    try {
+      const { text, today, weekday, tz } = req.body;
+
+      if (!text || typeof text !== 'string' || text.trim().length < 5) {
+        return res.status(400).json({
+          error: 'Please paste a valid announcement or message (at least 5 characters).',
+        });
+      }
+
+      const effectiveToday = today || '2026-10-31';
+      const effectiveWeekday = weekday || 'Saturday';
+      const effectiveTz = tz || 'Asia/Kolkata';
+
+      if (!ai) {
+        // Graceful fallback if no Gemini key configured
+        const fallback = createFallbackExtraction(text, effectiveToday);
+        return res.json({
+          success: true,
+          data: fallback,
+          is_fallback: true,
+          notice: 'Extracted using local heuristic fallback (Gemini API key not configured).',
+        });
+      }
+
+      const prompt = `You are the lead intelligence parser for Campus Radar at an Indian university.
+Extract structured data from the following raw campus communication.
+
+ANCHOR TIME CONTEXT:
+- Today's date: ${effectiveToday}
+- Today's day of week: ${effectiveWeekday}
+- Reference timezone: ${effectiveTz}
+
+CRITICAL RULES:
+1. Extract information ONLY when supported by the source text.
+2. NEVER invent dates, times, venues, eligibility, or URLs. If a field is not stated, return null.
+3. For every extracted date, time, venue, or required action, provide the verbatim quoted substring in "evidence".
+4. Relative dates: If the text says "tomorrow", resolve against ${effectiveToday} -> 2026-11-01. If it says "next Friday", resolve to the first upcoming Friday after ${effectiveToday}. If the text has a message timestamp like [28/10/26, 9:14 pm], use that as the relative anchor.
+5. If the text mentions ambiguous dates or missing links, record them in "warnings" and "missing_fields".
+6. If the text is ordinary chit-chat, a meme, or spam with no actionable event/deadline/announcement, set is_notice: false with a reason.
+
+RAW TEXT TO PARSE:
+<notice>
+${text.slice(0, 8000)}
+</notice>`;
+
+      const response = await callGeminiWithRetry({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: extractionResponseSchema,
+        },
+      });
+
+      const rawJson = (response.text || '{}').trim();
+      let parsed;
+      try {
+        parsed = JSON.parse(rawJson);
+      } catch (jsonErr) {
+        console.error('Failed to parse Gemini JSON:', rawJson, jsonErr);
+        parsed = createFallbackExtraction(text, effectiveToday);
+      }
+
+      // Evidence verification pass: ensure evidence substrings actually exist in the text
+      if (parsed.items && Array.isArray(parsed.items)) {
+        parsed.items = parsed.items.map((item: any) => {
+          const verifiedEvidence: Record<string, string> = {};
+          if (item.evidence && typeof item.evidence === 'object') {
+            for (const [key, quote] of Object.entries(item.evidence)) {
+              if (typeof quote === 'string' && text.toLowerCase().includes(quote.toLowerCase())) {
+                verifiedEvidence[key] = quote;
+              }
+            }
+          }
+          item.evidence = verifiedEvidence;
+          return item;
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: parsed,
+      });
+    } catch (err: any) {
+      console.error('Extraction error:', err);
+      // Graceful fallback on API failure or rate limit
+      const fallback = createFallbackExtraction(req.body?.text || '', req.body?.today || '2026-10-31');
+      return res.json({
+        success: true,
+        data: fallback,
+        is_fallback: true,
+        error_message: err?.message || 'AI service temporarily unavailable. Fallback applied.',
+      });
+    }
+  });
+
+  // POST /api/digest
+  app.post('/api/digest', async (req: Request, res: Response) => {
+    try {
+      const { notices, profile, today } = req.body;
+      const effectiveToday = today || '2026-10-31';
+
+      if (!notices || !Array.isArray(notices) || notices.length === 0) {
+        return res.status(400).json({
+          error: 'No announcements provided to build weekly briefing.',
+        });
+      }
+
+      if (!ai) {
+        const fallback = createFallbackDigest(notices, profile, effectiveToday);
+        return res.json({
+          success: true,
+          data: fallback,
+          is_fallback: true,
+        });
+      }
+
+      // Filter and compact notices for context window
+      const compactNotices = notices.slice(0, 20).map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        category: n.category,
+        kind: n.kind,
+        organizer: n.organizer,
+        event_date: n.event_date,
+        event_time: n.event_time,
+        registration_deadline: n.registration_deadline,
+        venue: n.venue,
+        eligibility: n.eligibility,
+        required_action: n.required_action,
+        urgency_reason: n.urgency_reason,
+      }));
+
+      const prompt = `You are the executive intelligence briefer for Campus Radar.
+Create a personalized, prioritized "Campus This Week" intelligence briefing for a student.
+
+STUDENT PROFILE:
+- Name: ${profile?.name || 'Student'}
+- Department: ${profile?.department || 'Engineering'}
+- Year: ${profile?.academic_year || 'Undergraduate'}
+- Key Interests: ${(profile?.interests || []).join(', ')}
+- Career Goals: ${(profile?.career_goals || []).join(', ')}
+- Today's date: ${effectiveToday}
+
+RULES:
+1. ONLY reference opportunities from the provided list. Do NOT invent events or deadlines.
+2. Every item in 'must_do', 'days', and 'heads_up' MUST reference a valid 'id' from the provided notices.
+3. Prioritize items where deadlines are approaching (within 48-72 hours) or event matches their interests.
+4. Keep the prose crisp, direct, and actionable.
+
+AVAILABLE CAMPUS NOTICES:
+${JSON.stringify(compactNotices, null, 2)}`;
+
+      const response = await callGeminiWithRetry({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: digestResponseSchema,
+        },
+      });
+
+      const rawJson = (response.text || '{}').trim();
+      let parsed;
+      try {
+        parsed = JSON.parse(rawJson);
+      } catch (jsonErr) {
+        console.error('Failed to parse digest JSON:', rawJson, jsonErr);
+        parsed = createFallbackDigest(notices, profile, effectiveToday);
+      }
+
+      // Validate returned notice IDs
+      const validIds = new Set(compactNotices.map(n => n.id));
+      if (parsed.must_do && Array.isArray(parsed.must_do)) {
+        parsed.must_do = parsed.must_do.filter((item: any) => validIds.has(item.id));
+      }
+
+      return res.json({
+        success: true,
+        data: parsed,
+      });
+    } catch (err: any) {
+      console.error('Digest error:', err);
+      const fallback = createFallbackDigest(req.body?.notices || [], req.body?.profile || {}, req.body?.today || '2026-10-31');
+      return res.json({
+        success: true,
+        data: fallback,
+        is_fallback: true,
+        error_message: err?.message || 'Using smart deterministic digest generator.',
+      });
+    }
+  });
+
+  // Mount Vite or serve static files
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    app.use(express.static(path.resolve(__dirname, 'dist')));
+    app.get('*', (_req: Request, res: Response) => {
+      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+    });
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Campus Radar] Server running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+startServer().catch(err => {
+  console.error('[Campus Radar] Server failed to start:', err);
+  process.exit(1);
+});
