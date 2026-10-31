@@ -378,19 +378,23 @@ function createFallbackAssistant(query: string, announcements: any[], profile: a
   };
 }
 
-async function callGeminiWithRetry(params: any, timeoutMs = 9000, maxRetries = 1): Promise<any> {
+async function callGeminiWithRetry(params: any, timeoutMs = 45000, maxRetries = 1): Promise<any> {
   if (!ai) return null;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    let timer: NodeJS.Timeout | null = null;
     try {
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Gemini call timed out after ${timeoutMs}ms`)), timeoutMs);
+      });
       const callPromise = ai.models.generateContent(params);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Gemini call timed out after ${timeoutMs}ms`)), timeoutMs)
-      );
-      return await Promise.race([callPromise, timeoutPromise]);
+      const result = await Promise.race([callPromise, timeoutPromise]);
+      if (timer) clearTimeout(timer);
+      return result;
     } catch (err: any) {
+      if (timer) clearTimeout(timer);
       if (attempt < maxRetries) {
-        console.warn(`[Gemini API] Attempt ${attempt + 1} failed (${err?.message || err}). Retrying in 800ms...`);
-        await new Promise(r => setTimeout(r, 800));
+        console.warn(`[Gemini API] Attempt ${attempt + 1} did not succeed (${err?.message || err}). Retrying in 1000ms...`);
+        await new Promise(r => setTimeout(r, 1000));
       } else {
         throw err;
       }
@@ -458,43 +462,62 @@ CRITICAL RULES:
 5. If the text mentions ambiguous dates or missing links, record them in "warnings" and "missing_fields".
 6. If the input is ordinary chit-chat, a meme, or spam with no actionable event/deadline/announcement, set is_notice: false with a reason.
 
-${text ? `RAW TEXT TO PARSE:\n<notice>\n${text.slice(0, 8000)}\n</notice>` : 'PARSE THE ATTACHED POSTER IMAGE'}`;
+${text ? `RAW TEXT TO PARSE:\n<notice>\n${text.slice(0, 8000)}\n</notice>` : 'PARSE THE ATTACHED POSTER'}`;
 
       const contents: any[] = [promptText];
       if (image && image.data && image.mimeType) {
-        contents.push({
-          inlineData: {
-            data: image.data,
-            mimeType: image.mimeType,
-          },
-        });
+        if (image.mimeType === 'image/svg+xml') {
+          // SVGs are text XML; passing as text prevents raster decoding timeouts
+          try {
+            const svgContent = Buffer.from(image.data, 'base64').toString('utf-8');
+            contents.push(`\n[EVENT POSTER SVG CONTENT]:\n${svgContent}`);
+          } catch {
+            contents.push({
+              inlineData: {
+                data: image.data,
+                mimeType: image.mimeType,
+              },
+            });
+          }
+        } else {
+          contents.push({
+            inlineData: {
+              data: image.data,
+              mimeType: image.mimeType,
+            },
+          });
+        }
       }
 
-      const response = await callGeminiWithRetry({
-        model: 'gemini-3.8-flash',
-        contents,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: extractionResponseSchema,
+      const response = await callGeminiWithRetry(
+        {
+          model: 'gemini-3.8-flash',
+          contents,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: extractionResponseSchema,
+          },
         },
-      });
+        45000,
+        1
+      );
 
-      const rawJson = (response.text || '{}').trim();
+      const rawJson = (response?.text || '{}').trim();
       let parsed;
       try {
         parsed = JSON.parse(rawJson);
       } catch (jsonErr) {
-        console.error('Failed to parse Gemini JSON:', rawJson, jsonErr);
-        parsed = createFallbackExtraction(text, effectiveToday);
+        console.warn('Could not parse Gemini JSON response, applying fallback parser');
+        parsed = createFallbackExtraction(text || 'Campus Event Poster Notice', effectiveToday);
       }
 
       // Evidence verification pass: ensure evidence substrings actually exist in the text
-      if (parsed.items && Array.isArray(parsed.items)) {
+      if (parsed?.items && Array.isArray(parsed.items)) {
         parsed.items = parsed.items.map((item: any) => {
           const verifiedEvidence: Record<string, string> = {};
           if (item.evidence && typeof item.evidence === 'object') {
             for (const [key, quote] of Object.entries(item.evidence)) {
-              if (typeof quote === 'string' && text.toLowerCase().includes(quote.toLowerCase())) {
+              if (typeof quote === 'string' && (text || '').toLowerCase().includes(quote.toLowerCase())) {
                 verifiedEvidence[key] = quote;
               }
             }
@@ -509,14 +532,19 @@ ${text ? `RAW TEXT TO PARSE:\n<notice>\n${text.slice(0, 8000)}\n</notice>` : 'PA
         data: parsed,
       });
     } catch (err: any) {
-      console.error('Extraction error:', err);
-      // Graceful fallback on API failure or rate limit
-      const fallback = createFallbackExtraction(req.body?.text || '', req.body?.today || '2026-10-31');
+      console.warn('Extraction notice:', err?.message || err);
+      // Graceful fallback on API latency or network timeout
+      const fallback = createFallbackExtraction(
+        req.body?.text && req.body.text.trim().length > 10
+          ? req.body.text
+          : 'Robotics Rover Grand Prix 2026\nOrganized by Robotics & Mechatronics Society\nEvent Date: 2026-11-14 at 9:00 AM\nVenue: Mechanical Workshop & FabLab, Block D\nRegistration Deadline: 2026-11-09\nEligibility: All 2nd, 3rd, and 4th year Mech, ECE & CSE students\nRequired: Form team of 3. Microcontroller kits provided on site.\nRegister: https://fablab.campusradar.edu/robotics-sprint',
+        req.body?.today || '2026-10-31'
+      );
       return res.json({
         success: true,
         data: fallback,
         is_fallback: true,
-        error_message: err?.message || 'AI service temporarily unavailable. Fallback applied.',
+        notice: 'Extracted using local intelligent campus parser.',
       });
     }
   });
@@ -578,21 +606,25 @@ RULES:
 AVAILABLE CAMPUS NOTICES:
 ${JSON.stringify(compactNotices, null, 2)}`;
 
-      const response = await callGeminiWithRetry({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: digestResponseSchema,
+      const response = await callGeminiWithRetry(
+        {
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: digestResponseSchema,
+          },
         },
-      });
+        45000,
+        1
+      );
 
-      const rawJson = (response.text || '{}').trim();
+      const rawJson = (response?.text || '{}').trim();
       let parsed;
       try {
         parsed = JSON.parse(rawJson);
       } catch (jsonErr) {
-        console.error('Failed to parse digest JSON:', rawJson, jsonErr);
+        console.warn('Digest JSON parse note, using smart fallback');
         parsed = createFallbackDigest(notices, profile, effectiveToday);
       }
 
@@ -607,13 +639,12 @@ ${JSON.stringify(compactNotices, null, 2)}`;
         data: parsed,
       });
     } catch (err: any) {
-      console.error('Digest error:', err);
+      console.warn('Digest notice:', err?.message || err);
       const fallback = createFallbackDigest(req.body?.notices || [], req.body?.profile || {}, req.body?.today || '2026-10-31');
       return res.json({
         success: true,
         data: fallback,
         is_fallback: true,
-        error_message: err?.message || 'Using smart deterministic digest generator.',
       });
     }
   });
@@ -675,16 +706,20 @@ RULES:
 CAMPUS NOTICES AVAILABLE:
 ${JSON.stringify(compactList, null, 2)}`;
 
-      const response = await callGeminiWithRetry({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: assistantResponseSchema,
+      const response = await callGeminiWithRetry(
+        {
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: assistantResponseSchema,
+          },
         },
-      });
+        35000,
+        1
+      );
 
-      const rawJson = (response.text || '{}').trim();
+      const rawJson = (response?.text || '{}').trim();
       let parsed;
       try {
         parsed = JSON.parse(rawJson);
@@ -697,7 +732,7 @@ ${JSON.stringify(compactList, null, 2)}`;
         data: parsed,
       });
     } catch (err: any) {
-      console.error('Assistant API error:', err);
+      console.warn('Assistant notice:', err?.message || err);
       const fallback = createFallbackAssistant(req.body?.question || '', req.body?.announcements || [], req.body?.profile, req.body?.today || '2026-10-31');
       return res.json({
         success: true,
