@@ -219,3 +219,102 @@ describe('additional status edge cases', () => {
     assert.match(ics, /DTSTART:20261105T/);
   });
 });
+
+
+describe('additional priority and download behavior', () => {
+  it('returns Today priority for an event starting within the current-day window', () => {
+    assert.equal(
+      getAnnouncementPriority(
+        makeAnnouncement({ event_date: '2026-10-31', event_time: '1:00 PM' }),
+        false,
+        fixedNow
+      ),
+      'Today'
+    );
+  });
+
+  it('returns Normal for an event far in the future', () => {
+    assert.equal(
+      getAnnouncementPriority(
+        makeAnnouncement({ event_date: '2026-12-15', event_time: '10:00 AM' }),
+        false,
+        fixedNow
+      ),
+      'Normal'
+    );
+  });
+
+  it('creates, clicks, and cleans up the calendar download link', async () => {
+    const { downloadICS } = await import('../src/lib/dates');
+    const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+    const originalCreate = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const originalRevoke = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+    let clicked = false;
+    let appended = false;
+    let removed = false;
+    let revoked = false;
+    const link = {
+      href: '',
+      setAttribute(name: string, value: string) {
+        assert.equal(name, 'download');
+        assert.match(value, /Workshop.*\.ics$/);
+      },
+      click() {
+        clicked = true;
+      },
+    };
+    const fakeDocument = {
+      createElement(tag: string) {
+        assert.equal(tag, 'a');
+        return link;
+      },
+      body: {
+        appendChild(node: unknown) {
+          assert.equal(node, link);
+          appended = true;
+        },
+        removeChild(node: unknown) {
+          assert.equal(node, link);
+          removed = true;
+        },
+      },
+    };
+
+    try {
+      Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        value: fakeDocument,
+      });
+      Object.defineProperty(URL, 'createObjectURL', {
+        configurable: true,
+        value: () => 'blob:campvibe-test',
+      });
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        configurable: true,
+        value: (url: string) => {
+          assert.equal(url, 'blob:campvibe-test');
+          revoked = true;
+        },
+      });
+
+      downloadICS(makeAnnouncement({
+        title: 'Workshop Export',
+        event_date: '2026-11-05',
+        event_time: '10:00 AM',
+      }));
+
+      assert.equal(link.href, 'blob:campvibe-test');
+      assert.equal(clicked, true);
+      assert.equal(appended, true);
+      assert.equal(removed, true);
+      assert.equal(revoked, true);
+    } finally {
+      if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+      else Reflect.deleteProperty(globalThis, 'document');
+      if (originalCreate) Object.defineProperty(URL, 'createObjectURL', originalCreate);
+      else Reflect.deleteProperty(URL, 'createObjectURL');
+      if (originalRevoke) Object.defineProperty(URL, 'revokeObjectURL', originalRevoke);
+      else Reflect.deleteProperty(URL, 'revokeObjectURL');
+    }
+  });
+});

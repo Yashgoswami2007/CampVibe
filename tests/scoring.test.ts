@@ -86,3 +86,94 @@ describe('personalized relevance scoring', () => {
     assert.equal(result.breakdown.yearMatch, 12);
   });
 });
+
+
+describe('interest synonym matching', () => {
+  const cases: Array<[string, string]> = [
+    ['Artificial Intelligence', 'neural networks'],
+    ['Machine Learning', 'PyTorch models'],
+    ['Web Development', 'React frontend'],
+    ['App Development', 'Android application'],
+    ['Data Science', 'SQL analytics'],
+    ['Cybersecurity', 'CTF security challenge'],
+    ['Competitive Programming', 'LeetCode algorithms'],
+    ['Hackathon', 'prize pool for builders'],
+    ['Robotics', 'autonomous rover'],
+    ['Design', 'Figma UI UX'],
+    ['Workshops', 'hands-on bootcamp session'],
+  ];
+
+  for (const [interest, matchingPhrase] of cases) {
+    it('matches ' + interest + ' using related keywords', () => {
+      const result = calculateRelevance(
+        makeAnnouncement({
+          title: 'General Campus Activity',
+          category: 'Other',
+          description: matchingPhrase,
+        }),
+        makeProfile({ interests: [interest], career_goals: [] })
+      );
+      assert.equal(result.breakdown.interestMatch, 40);
+    });
+  }
+});
+
+describe('career goal synonym matching', () => {
+  const cases: Array<[string, string]> = [
+    ['Internship Applicant', 'Summer internship opportunity'],
+    ['Core Placement Engineer', 'Campus job drive'],
+    ['AI Research Engineer', 'Research paper from the lab'],
+    ['Startup Founder', 'E-cell pitch and entrepreneurship'],
+  ];
+
+  for (const [goal, matchingPhrase] of cases) {
+    it('matches ' + goal + ' using related keywords', () => {
+      const result = calculateRelevance(
+        makeAnnouncement({ description: matchingPhrase }),
+        makeProfile({ interests: [], career_goals: [goal] })
+      );
+      assert.equal(result.breakdown.careerMatch, 20);
+    });
+  }
+
+  it('gives zero career points when goals have no matching evidence', () => {
+    const result = calculateRelevance(
+      makeAnnouncement({ description: 'A general music gathering' }),
+      makeProfile({ interests: [], career_goals: ['AI Research Engineer'] })
+    );
+    assert.equal(result.breakdown.careerMatch, 0);
+  });
+});
+
+describe('eligibility and score limits', () => {
+  it('applies the academic-year mismatch penalty', () => {
+    const result = calculateRelevance(
+      makeAnnouncement({
+        target_departments: ['Computer Science'],
+        target_years: ['4th Year'],
+      }),
+      makeProfile({ academic_year: '3rd Year', interests: [], career_goals: [] })
+    );
+    assert.equal(result.breakdown.yearMatch, 2);
+    assert.ok(result.score <= 30);
+  });
+
+  it('caps a highly relevant opportunity at 100', () => {
+    const result = calculateRelevance(
+      makeAnnouncement({
+        title: 'AI Research Hackathon for React Developers',
+        category: 'Artificial Intelligence',
+        description: 'AI research, React development, and startup founder internship.',
+        tags: ['Hackathon', 'Research', 'Internship'],
+        target_departments: ['Computer Science'],
+        target_years: ['3rd Year'],
+      }),
+      makeProfile({
+        interests: ['Artificial Intelligence', 'Hackathon', 'Web Development'],
+        career_goals: ['AI Research Engineer', 'Startup Founder', 'Internship Applicant'],
+      })
+    );
+    assert.ok(result.score <= 100);
+    assert.equal(result.tier, 'Strong Match');
+  });
+});

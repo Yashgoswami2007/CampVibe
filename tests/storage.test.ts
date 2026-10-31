@@ -151,7 +151,7 @@ describe('notifications and recent searches', () => {
     const searches = StorageService.getRecentSearches();
 
     assert.equal(searches.length, 8);
-    assert.equal(searches[0], 'search-9');
+    assert.equal(searches[0], 'ai systems');
     assert.equal(searches.filter((term) => term.toLowerCase() === 'ai systems').length, 1);
   });
 
@@ -279,5 +279,39 @@ describe('storage resilience', () => {
     StorageService.addRecentSearch('hackathon');
     const searches = StorageService.getRecentSearches();
     assert.equal(searches.filter((term) => term.toLowerCase() === 'hackathon').length, 1);
+  });
+});
+
+
+describe('localStorage fallback behavior', () => {
+  it('uses the in-memory fallback when localStorage throws', () => {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem() {
+            throw new Error('Storage is unavailable');
+          },
+          setItem() {
+            throw new Error('Storage is unavailable');
+          },
+        },
+      },
+    });
+
+    const profile = makeProfile({ name: 'Fallback Student' });
+    StorageService.saveProfile(profile);
+    assert.deepEqual(StorageService.getProfile(), profile);
+  });
+
+  it('ignores blank recent search terms without adding an entry', () => {
+    const before = StorageService.getRecentSearches();
+    const afterBlank = StorageService.addRecentSearch('   ');
+    assert.deepEqual(afterBlank, before);
+  });
+
+  it('uses fallback suggestions for malformed recent-search JSON', () => {
+    values.set('campus_radar_v1_recent_searches', '{bad json');
+    assert.deepEqual(StorageService.getRecentSearches(), ['Hackathons', 'PyTorch', 'Internships']);
   });
 });
