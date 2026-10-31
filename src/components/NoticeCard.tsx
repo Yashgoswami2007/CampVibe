@@ -92,6 +92,24 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({
                   {priority}
                 </span>
 
+                {/* Announcement Workflow Status Badge */}
+                {announcement.status === 'pending_approval' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black rounded-md uppercase bg-amber-100 text-amber-900 border border-amber-300">
+                    <Clock className="w-3 h-3 text-amber-600" />
+                    Pending Review
+                  </span>
+                )}
+                {announcement.status === 'draft' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black rounded-md uppercase bg-slate-100 text-slate-700 border border-slate-300">
+                    Draft
+                  </span>
+                )}
+                {announcement.status === 'rejected' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black rounded-md uppercase bg-rose-100 text-rose-800 border border-rose-300">
+                    Rejected
+                  </span>
+                )}
+
                 {/* Status Indicator */}
                 <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md border text-slate-500 bg-[#F4F5F8] border-slate-200">
                   {status.countdownText}

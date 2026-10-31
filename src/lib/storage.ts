@@ -1,5 +1,14 @@
-import { CampusAnnouncement, CampusNotification, OpportunityFolder, StudentProfile, UserOpportunityState, WeeklyDigest } from '../types';
-import { DEMO_PROFILES, INITIAL_ANNOUNCEMENTS } from './seedData';
+import {
+  CampusAnnouncement,
+  CampusNotification,
+  ClubInfo,
+  ClubMember,
+  OpportunityFolder,
+  StudentProfile,
+  UserOpportunityState,
+  WeeklyDigest,
+} from '../types';
+import { DEMO_PROFILES, INITIAL_ANNOUNCEMENTS, INITIAL_CLUBS, INITIAL_CLUB_MEMBERS } from './seedData';
 
 const STORAGE_KEYS = {
   ANNOUNCEMENTS: 'campus_radar_v1_announcements',
@@ -10,6 +19,9 @@ const STORAGE_KEYS = {
   ACTIVE_DEMO_ID: 'campus_radar_v1_active_demo_id',
   NOTIFICATIONS: 'campus_radar_v1_notifications',
   RECENT_SEARCHES: 'campus_radar_v1_recent_searches',
+  CLUBS: 'campus_radar_v1_clubs',
+  CLUB_MEMBERS: 'campus_radar_v1_club_members',
+  USERS: 'campus_radar_v1_users',
 };
 
 export const INITIAL_NOTIFICATIONS: CampusNotification[] = [
@@ -101,7 +113,6 @@ export const StorageService = {
 
   addAnnouncement(announcement: CampusAnnouncement): CampusAnnouncement[] {
     const list = this.getAnnouncements();
-    // Prepend new announcement
     const updated = [announcement, ...list.filter(a => a.id !== announcement.id)];
     this.saveAnnouncements(updated);
     return updated;
@@ -121,7 +132,70 @@ export const StorageService = {
     return updated;
   },
 
-  // Student Profile
+  approveAnnouncement(id: string, approver: StudentProfile): CampusAnnouncement[] {
+    const list = this.getAnnouncements();
+    const updated = list.map(a => {
+      if (a.id === id) {
+        return {
+          ...a,
+          status: 'published' as const,
+          approved_by_user_id: approver.id,
+          approval_timestamp: new Date().toISOString(),
+        };
+      }
+      return a;
+    });
+    this.saveAnnouncements(updated);
+    return updated;
+  },
+
+  rejectAnnouncement(id: string, reason?: string): CampusAnnouncement[] {
+    const list = this.getAnnouncements();
+    const updated = list.map(a => {
+      if (a.id === id) {
+        return {
+          ...a,
+          status: 'rejected' as const,
+          rejection_reason: reason || 'Does not meet campus notice guidelines.',
+        };
+      }
+      return a;
+    });
+    this.saveAnnouncements(updated);
+    return updated;
+  },
+
+  // Active Profile & Users Directory
+  getUsers(): StudentProfile[] {
+    const raw = safeGetItem(STORAGE_KEYS.USERS);
+    if (!raw) {
+      this.saveUsers(DEMO_PROFILES);
+      return DEMO_PROFILES;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEMO_PROFILES;
+    } catch {
+      return DEMO_PROFILES;
+    }
+  },
+
+  saveUsers(users: StudentProfile[]): void {
+    safeSetItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  },
+
+  updateUser(user: StudentProfile): StudentProfile[] {
+    const users = this.getUsers();
+    const updated = users.map(u => (u.id === user.id ? user : u));
+    this.saveUsers(updated);
+    // If the updated user is currently active, save profile as well
+    const current = this.getProfile();
+    if (current.id === user.id) {
+      this.saveProfile(user);
+    }
+    return updated;
+  },
+
   getProfile(): StudentProfile {
     const raw = safeGetItem(STORAGE_KEYS.PROFILE);
     if (!raw) {
@@ -130,7 +204,17 @@ export const StorageService = {
       return defaultProfile;
     }
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      // Ensure role exists; if legacy profile, merge with DEMO_PROFILES or default to student
+      if (!parsed.role) {
+        const found = DEMO_PROFILES.find(p => p.id === parsed.id);
+        parsed.role = found?.role || 'student';
+        if (found?.assigned_club_id) parsed.assigned_club_id = found.assigned_club_id;
+        if (found?.assigned_club_name) parsed.assigned_club_name = found.assigned_club_name;
+        if (found?.explicit_permissions) parsed.explicit_permissions = found.explicit_permissions;
+        this.saveProfile(parsed);
+      }
+      return parsed;
     } catch {
       return DEMO_PROFILES[0];
     }
@@ -138,6 +222,89 @@ export const StorageService = {
 
   saveProfile(profile: StudentProfile): void {
     safeSetItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+  },
+
+  // Clubs
+  getClubs(): ClubInfo[] {
+    const raw = safeGetItem(STORAGE_KEYS.CLUBS);
+    if (!raw) {
+      this.saveClubs(INITIAL_CLUBS);
+      return INITIAL_CLUBS;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_CLUBS;
+    } catch {
+      return INITIAL_CLUBS;
+    }
+  },
+
+  saveClubs(clubs: ClubInfo[]): void {
+    safeSetItem(STORAGE_KEYS.CLUBS, JSON.stringify(clubs));
+  },
+
+  addClub(club: ClubInfo): ClubInfo[] {
+    const list = this.getClubs();
+    const updated = [...list, club];
+    this.saveClubs(updated);
+    return updated;
+  },
+
+  updateClub(club: ClubInfo): ClubInfo[] {
+    const list = this.getClubs();
+    const updated = list.map(c => (c.id === club.id ? club : c));
+    this.saveClubs(updated);
+    return updated;
+  },
+
+  deleteClub(clubId: string): ClubInfo[] {
+    const list = this.getClubs();
+    const updated = list.filter(c => c.id !== clubId);
+    this.saveClubs(updated);
+    return updated;
+  },
+
+  // Club Members
+  getClubMembers(clubId?: string): ClubMember[] {
+    const raw = safeGetItem(STORAGE_KEYS.CLUB_MEMBERS);
+    let all: ClubMember[] = [];
+    if (!raw) {
+      this.saveClubMembers(INITIAL_CLUB_MEMBERS);
+      all = INITIAL_CLUB_MEMBERS;
+    } else {
+      try {
+        const parsed = JSON.parse(raw);
+        all = Array.isArray(parsed) ? parsed : INITIAL_CLUB_MEMBERS;
+      } catch {
+        all = INITIAL_CLUB_MEMBERS;
+      }
+    }
+    return clubId ? all.filter(m => m.club_id === clubId) : all;
+  },
+
+  saveClubMembers(members: ClubMember[]): void {
+    safeSetItem(STORAGE_KEYS.CLUB_MEMBERS, JSON.stringify(members));
+  },
+
+  addClubMember(member: ClubMember): ClubMember[] {
+    const list = this.getClubMembers();
+    const updated = [...list, member];
+    this.saveClubMembers(updated);
+    return updated;
+  },
+
+  updateClubMember(member: ClubMember): ClubMember[] {
+    const list = this.getClubMembers();
+    const updated = list.map(m => (m.id === member.id ? member : m));
+    this.saveClubMembers(updated);
+    return updated;
+  },
+
+  deleteClubMember(memberId: string): ClubMember[] {
+    const list = this.getClubMembers();
+    const updated = list.filter(m => m.id !== memberId);
+    this.saveClubMembers(updated);
+    return updated;
   },
 
   // User Opportunities (Saved, Interested, Applied, Completed)
@@ -262,7 +429,10 @@ export const StorageService = {
   // Reset to default
   resetToDefaults(): void {
     this.saveAnnouncements(INITIAL_ANNOUNCEMENTS);
+    this.saveUsers(DEMO_PROFILES);
     this.saveProfile(DEMO_PROFILES[0]);
+    this.saveClubs(INITIAL_CLUBS);
+    this.saveClubMembers(INITIAL_CLUB_MEMBERS);
     this.saveNotifications(INITIAL_NOTIFICATIONS);
     safeSetItem(STORAGE_KEYS.OPPORTUNITIES, JSON.stringify([]));
     safeSetItem(STORAGE_KEYS.DIGEST, '');
@@ -272,9 +442,12 @@ export const StorageService = {
   // Export full JSON state
   exportJSON(): string {
     const data = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       profile: this.getProfile(),
+      users: this.getUsers(),
+      clubs: this.getClubs(),
+      club_members: this.getClubMembers(),
       announcements: this.getAnnouncements(),
       opportunities: Object.values(this.getOpportunityStates()),
     };
@@ -286,6 +459,9 @@ export const StorageService = {
     try {
       const data = JSON.parse(jsonString);
       if (data.profile) this.saveProfile(data.profile);
+      if (Array.isArray(data.users)) this.saveUsers(data.users);
+      if (Array.isArray(data.clubs)) this.saveClubs(data.clubs);
+      if (Array.isArray(data.club_members)) this.saveClubMembers(data.club_members);
       if (Array.isArray(data.announcements)) this.saveAnnouncements(data.announcements);
       if (Array.isArray(data.opportunities)) {
         safeSetItem(STORAGE_KEYS.OPPORTUNITIES, JSON.stringify(data.opportunities));

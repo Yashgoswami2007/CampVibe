@@ -48,6 +48,46 @@ export interface FieldConfidence {
   required_action?: 'high' | 'medium' | 'low';
 }
 
+export type UserRole = 'super_admin' | 'head' | 'student';
+
+export interface ExplicitPermissions {
+  can_approve_announcements?: boolean;
+  can_manage_all_students?: boolean;
+  can_bypass_approval?: boolean;
+  can_access_institution_analytics?: boolean;
+}
+
+export interface ClubInfo {
+  id: string;
+  name: string;
+  code: string;
+  category: 'Technical' | 'Cultural' | 'Sports' | 'Academic' | 'Social';
+  description: string;
+  lead_name: string;
+  lead_email: string;
+  lead_user_id?: string;
+  member_count: number;
+  logo_url?: string;
+  color_theme?: string;
+  meeting_schedule?: string;
+  created_at: string;
+}
+
+export interface ClubMember {
+  id: string;
+  club_id: string;
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  department: string;
+  academic_year: string;
+  club_role: 'Lead' | 'Vice Lead' | 'Core Team' | 'Member' | 'Applicant';
+  joined_at: string;
+  status: 'active' | 'pending' | 'alumni';
+}
+
+export type AnnouncementStatus = 'draft' | 'pending_approval' | 'published' | 'rejected' | 'archived';
+
 export interface CampusAnnouncement {
   id: string;
   title: string;
@@ -77,6 +117,15 @@ export interface CampusAnnouncement {
   is_demo?: boolean;
   priority_override?: PriorityOption;
   is_completed?: boolean;
+  // Role and Permission governance fields
+  status?: AnnouncementStatus;
+  club_id?: string;
+  created_by_user_id?: string;
+  created_by_name?: string;
+  created_by_role?: UserRole;
+  approved_by_user_id?: string;
+  approval_timestamp?: string;
+  rejection_reason?: string;
 }
 
 export interface CampusNotification {
@@ -100,14 +149,21 @@ export interface AssistantMessage {
 export interface StudentProfile {
   id: string;
   name: string;
+  email?: string;
+  role?: UserRole;
+  title?: string;
   college: string;
   department: string;
-  academic_year: string; // e.g. "3rd Year"
+  academic_year: string; // e.g. "3rd Year" or "Faculty / Admin"
   interests: string[];
   career_goals: string[];
   notifications_enabled: boolean;
   avatar_url?: string;
   created_at: string;
+  // Role & scope fields
+  assigned_club_id?: string;
+  assigned_club_name?: string;
+  explicit_permissions?: ExplicitPermissions;
 }
 
 export type OpportunityFolder = 'saved' | 'interested' | 'applied' | 'completed';

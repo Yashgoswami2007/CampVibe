@@ -12,6 +12,7 @@ import { ShareAnnouncementModal } from './components/ShareAnnouncementModal';
 import { EditAnnouncementModal } from './components/EditAnnouncementModal';
 import { NotificationModal } from './components/NotificationModal';
 import { AiCampusAssistant } from './components/AiCampusAssistant';
+import { RoleMatrixModal } from './components/RoleMatrixModal';
 import { HomeDashboard } from './pages/HomeDashboard';
 import { ExplorePage } from './pages/ExplorePage';
 import { CalendarPage } from './pages/CalendarPage';
@@ -20,9 +21,14 @@ import { AddAnnouncement } from './pages/AddAnnouncement';
 import { WeeklyBriefingPage } from './pages/WeeklyBriefingPage';
 import { MyInterestsPage } from './pages/MyInterestsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ApprovalsPage } from './pages/ApprovalsPage';
+import { ClubsManagementPage } from './pages/ClubsManagementPage';
+import { StudentsManagementPage } from './pages/StudentsManagementPage';
+import { UsersManagementPage } from './pages/UsersManagementPage';
 import { CampusAnnouncement, CampusNotification, OpportunityFolder, StudentProfile } from './types';
 import { StorageService } from './lib/storage';
 import { DEMO_PROFILES } from './lib/seedData';
+import { Permissions } from './lib/permissions';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<string>('home');
@@ -37,9 +43,12 @@ export default function App() {
   const [editingAnnouncement, setEditingAnnouncement] = useState<CampusAnnouncement | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState<boolean>(false);
+  const [isRoleMatrixOpen, setIsRoleMatrixOpen] = useState<boolean>(false);
   const [isOnboarded, setIsOnboarded] = useState<boolean>(() => StorageService.isOnboarded());
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const pendingApprovalsCount = announcements.filter((a) => a.status === 'pending_approval').length;
 
   // Keyboard shortcut listener (Esc closes modals)
   useEffect(() => {
@@ -50,6 +59,7 @@ export default function App() {
         setEditingAnnouncement(null);
         setIsNotificationsOpen(false);
         setIsAssistantOpen(false);
+        setIsRoleMatrixOpen(false);
         setMobileMenuOpen(false);
       }
       if (e.key === '/' && (e.target as HTMLElement)?.tagName !== 'INPUT' && (e.target as HTMLElement)?.tagName !== 'TEXTAREA') {
@@ -74,7 +84,11 @@ export default function App() {
   const handleAnnouncementCreated = (newAnnouncement: CampusAnnouncement) => {
     const updatedList = StorageService.addAnnouncement(newAnnouncement);
     setAnnouncements([...updatedList]);
-    setCurrentView('explore');
+    if (newAnnouncement.status === 'pending_approval') {
+      setCurrentView('approvals');
+    } else {
+      setCurrentView('explore');
+    }
     setSelectedAnnouncement(newAnnouncement);
   };
 
@@ -132,6 +146,24 @@ export default function App() {
     }
   };
 
+  const handleApproveAnnouncement = (id: string) => {
+    const updatedList = StorageService.approveAnnouncement(id, profile);
+    setAnnouncements([...updatedList]);
+    if (selectedAnnouncement?.id === id) {
+      const target = updatedList.find((a) => a.id === id);
+      if (target) setSelectedAnnouncement(target);
+    }
+  };
+
+  const handleRejectAnnouncement = (id: string, reason?: string) => {
+    const updatedList = StorageService.rejectAnnouncement(id, reason);
+    setAnnouncements([...updatedList]);
+    if (selectedAnnouncement?.id === id) {
+      const target = updatedList.find((a) => a.id === id);
+      if (target) setSelectedAnnouncement(target);
+    }
+  };
+
   const handleMarkNotificationRead = (id: string) => {
     const next = StorageService.markNotificationRead(id);
     setNotifications([...next]);
@@ -159,7 +191,7 @@ export default function App() {
   const getPageTitle = () => {
     switch (currentView) {
       case 'home':
-        return 'Dashboard';
+        return profile.role === 'super_admin' ? 'Campus Pulse' : profile.role === 'head' ? `${profile.assigned_club_name || 'Club'} Hub` : 'Dashboard';
       case 'explore':
         return 'Explore';
       case 'calendar':
@@ -167,7 +199,15 @@ export default function App() {
       case 'opportunities':
         return 'My Pipeline';
       case 'add':
-        return 'Smart Add';
+        return profile.role === 'head' ? 'Post Club Notice' : 'Smart Add';
+      case 'approvals':
+        return 'Approvals Queue';
+      case 'clubs':
+        return profile.role === 'super_admin' ? 'Manage Clubs' : 'Club Profile';
+      case 'students':
+        return profile.role === 'super_admin' ? 'Student Directory' : 'Club Member Roster';
+      case 'users':
+        return 'Roles & Permissions';
       case 'briefing':
         return 'Weekly Briefing';
       case 'interests':
@@ -191,6 +231,7 @@ export default function App() {
             activeProfile={profile}
             onSelectProfile={handleProfileChange}
             savedCount={Object.keys(opportunityStates).length}
+            pendingApprovalsCount={pendingApprovalsCount}
           />
         </div>
 
@@ -210,6 +251,7 @@ export default function App() {
                   setMobileMenuOpen(false);
                 }}
                 savedCount={Object.keys(opportunityStates).length}
+                pendingApprovalsCount={pendingApprovalsCount}
               />
             </div>
             <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
@@ -233,6 +275,10 @@ export default function App() {
             profile={profile}
             notifications={notifications}
             onSelectAnnouncement={handleSelectAnnouncement}
+            onSelectProfile={handleProfileChange}
+            onOpenRoleMatrix={() => setIsRoleMatrixOpen(true)}
+            pendingApprovalsCount={pendingApprovalsCount}
+            onOpenPendingApprovals={() => setCurrentView('approvals')}
           />
 
           {/* Content Page View */}
@@ -246,6 +292,8 @@ export default function App() {
                 onToggleSave={handleToggleSave}
                 onShare={(a) => setSharingAnnouncement(a)}
                 onNavigate={handleNavigate}
+                onApprove={handleApproveAnnouncement}
+                onReject={handleRejectAnnouncement}
               />
             )}
 
@@ -258,6 +306,39 @@ export default function App() {
                 onToggleSave={handleToggleSave}
                 onShare={(a) => setSharingAnnouncement(a)}
                 initialSearch={searchQuery}
+              />
+            )}
+
+            {currentView === 'approvals' && (
+              <ApprovalsPage
+                profile={profile}
+                announcements={announcements}
+                onApprove={handleApproveAnnouncement}
+                onReject={handleRejectAnnouncement}
+                onSelectAnnouncement={handleSelectAnnouncement}
+                onSwitchToApprover={() => handleProfileChange(DEMO_PROFILES[0])}
+              />
+            )}
+
+            {currentView === 'clubs' && (
+              <ClubsManagementPage
+                profile={profile}
+                onNavigate={handleNavigate}
+              />
+            )}
+
+            {currentView === 'students' && (
+              <StudentsManagementPage
+                profile={profile}
+                onSwitchPersona={() => handleProfileChange(DEMO_PROFILES[1])}
+              />
+            )}
+
+            {currentView === 'users' && (
+              <UsersManagementPage
+                profile={profile}
+                onUpdateActiveProfile={handleProfileChange}
+                onSwitchPersona={() => handleProfileChange(DEMO_PROFILES[0])}
               />
             )}
 
@@ -285,9 +366,11 @@ export default function App() {
 
             {currentView === 'add' && (
               <AddAnnouncement
+                profile={profile}
                 existingAnnouncements={announcements}
                 onAnnouncementCreated={handleAnnouncementCreated}
                 onCancel={() => setCurrentView('home')}
+                onSwitchPersona={() => handleProfileChange(DEMO_PROFILES[1])}
               />
             )}
 
@@ -330,6 +413,8 @@ export default function App() {
           onEdit={handleEditAnnouncement}
           onDelete={handleDeleteAnnouncement}
           onShare={(a) => setSharingAnnouncement(a)}
+          onApprove={handleApproveAnnouncement}
+          onReject={handleRejectAnnouncement}
         />
       )}
 
@@ -379,6 +464,14 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Role & Permission Matrix Guide Modal */}
+      <RoleMatrixModal
+        isOpen={isRoleMatrixOpen}
+        onClose={() => setIsRoleMatrixOpen(false)}
+        activeProfile={profile}
+        onSelectProfile={handleProfileChange}
+      />
 
       {/* First-Time Onboarding Modal */}
       {!isOnboarded && (

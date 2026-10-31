@@ -12,6 +12,7 @@ import { AnnouncementCategory, CampusAnnouncement, OpportunityFolder, StudentPro
 import { NoticeCard } from '../components/NoticeCard';
 import { calculateAnnouncementStatus } from '../lib/dates';
 import { calculateRelevance } from '../lib/scoring';
+import { Permissions } from '../lib/permissions';
 
 interface ExplorePageProps {
   profile: StudentProfile;
@@ -69,6 +70,11 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   // Filtered announcements
   const filteredList = useMemo(() => {
     return announcements.filter((a) => {
+      // Role & Permission Matrix view gating
+      if (!Permissions.canViewAnnouncement(profile, a)) {
+        return false;
+      }
+
       // Search text
       if (search.trim()) {
         const query = search.toLowerCase();

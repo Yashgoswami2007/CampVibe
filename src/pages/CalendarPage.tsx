@@ -42,21 +42,46 @@ const CALENDAR_FILTERS: CalendarFilterOption[] = [
   'Deadlines',
 ];
 
+import { Permissions } from '../lib/permissions';
+
 export const CalendarPage: React.FC<CalendarPageProps> = ({
+  profile,
   announcements,
+  opportunityStates,
   onSelectAnnouncement,
 }) => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [selectedFilter, setSelectedFilter] = useState<CalendarFilterOption>('All Events');
   
+  // Role scope from matrix: Super Admin = College-wide, Head = Club-specific, Student = Personal
+  const initialScope = Permissions.isSuperAdmin(profile)
+    ? 'college_wide'
+    : Permissions.isHead(profile)
+    ? 'club_specific'
+    : 'personal';
+  const [calendarScope, setCalendarScope] = useState<'college_wide' | 'club_specific' | 'personal'>(initialScope);
+
   // Date anchor: default to Nov 2026 (Anchor around Sat 31 Oct 2026)
   const [currentYear, setCurrentYear] = useState<number>(2026);
   const [currentMonth, setCurrentMonth] = useState<number>(10); // 10 is November (0-indexed)
   const [selectedDateStr, setSelectedDateStr] = useState<string>('2026-11-01');
 
-  // Filter announcements
+  // Filter announcements with scope
   const filteredAnnouncements = useMemo(() => {
     return announcements.filter((a) => {
+      // 1. Role scope filter
+      if (calendarScope === 'club_specific' && profile.assigned_club_id) {
+        const isClubItem = a.club_id === profile.assigned_club_id || a.organizer === profile.assigned_club_name;
+        if (!isClubItem) return false;
+      } else if (calendarScope === 'personal') {
+        const isSaved = Boolean(opportunityStates[a.id]);
+        const deptMatch = (a.target_departments || []).some(
+          (d) => d.toLowerCase() === 'all' || d.toLowerCase() === profile.department.toLowerCase()
+        );
+        if (!isSaved && !deptMatch && a.target_departments?.length > 0) return false;
+      }
+
+      // 2. Category filter
       if (selectedFilter === 'All Events') return true;
       if (selectedFilter === 'Deadlines') return Boolean(a.registration_deadline);
       if (selectedFilter === 'Academic') return a.category === 'Academic' || a.category === 'Academics' || a.category === 'Examination' || a.category === 'Assignment';
@@ -68,7 +93,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       if (selectedFilter === 'Internships') return a.category === 'Internship' || a.category === 'Internships' || a.category === 'Placement' || a.category === 'Placements';
       return true;
     });
-  }, [announcements, selectedFilter]);
+  }, [announcements, selectedFilter, calendarScope, profile, opportunityStates]);
 
   // Month metadata
   const monthDate = new Date(currentYear, currentMonth, 1);
@@ -144,8 +169,38 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
           </p>
         </div>
 
-        {/* View Mode & Month Controls */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        {/* Calendar Scope Pills matching the Role Matrix */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-white border border-slate-200/80 p-1 rounded-xl shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setCalendarScope('college_wide')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                calendarScope === 'college_wide' ? 'bg-[#181B20] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              College-Wide
+            </button>
+            <button
+              type="button"
+              onClick={() => setCalendarScope('club_specific')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                calendarScope === 'club_specific' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {profile.assigned_club_name ? `${profile.assigned_club_name.split(' ')[0]} Club` : 'Club Events'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCalendarScope('personal')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                calendarScope === 'personal' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Personal Pipeline
+            </button>
+          </div>
+
           {/* View Switcher */}
           <div className="flex items-center bg-[#F8F9FA] border border-slate-200/80 p-1 rounded-xl shadow-2xs">
             {(['month', 'week', 'day'] as const).map((mode) => (

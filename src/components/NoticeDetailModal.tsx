@@ -19,6 +19,7 @@ import {
 import { CampusAnnouncement, OpportunityFolder, StudentProfile } from '../types';
 import { calculateAnnouncementStatus, downloadICS, formatDate, getDateTile } from '../lib/dates';
 import { calculateRelevance } from '../lib/scoring';
+import { Permissions } from '../lib/permissions';
 
 interface NoticeDetailModalProps {
   announcement: CampusAnnouncement | null;
@@ -29,6 +30,8 @@ interface NoticeDetailModalProps {
   onEdit?: (announcement: CampusAnnouncement) => void;
   onDelete?: (id: string) => void;
   onShare?: (announcement: CampusAnnouncement) => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string, reason?: string) => void;
 }
 
 export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
@@ -40,6 +43,8 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
   onEdit,
   onDelete,
   onShare,
+  onApprove,
+  onReject,
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'source'>('details');
 
@@ -48,6 +53,10 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
   const status = calculateAnnouncementStatus(announcement);
   const relevance = calculateRelevance(announcement, profile);
   const dateTile = getDateTile(announcement.event_date || announcement.registration_deadline);
+
+  const canEdit = Permissions.canEditAnnouncement(profile, announcement);
+  const canDelete = Permissions.canDeleteAnnouncement(profile, announcement);
+  const canApprove = Permissions.canApproveAnnouncement(profile);
 
   const folderOptions: Array<{ id: OpportunityFolder; label: string }> = [
     { id: 'saved', label: 'Saved' },
@@ -70,6 +79,17 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
             </span>
             <span aria-hidden="true" className="text-slate-300">·</span>
             <span className="text-xs text-slate-500 font-medium">{announcement.organizer}</span>
+            {announcement.status && announcement.status !== 'published' && (
+              <span className={`text-[10px] font-mono uppercase font-black px-2 py-0.5 rounded-md ml-1 ${
+                announcement.status === 'pending_approval'
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                  : announcement.status === 'draft'
+                  ? 'bg-slate-200 text-slate-800'
+                  : 'bg-rose-100 text-rose-800'
+              }`}>
+                {announcement.status.replace('_', ' ')}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -78,7 +98,7 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('details')}
-                className={`px-3 py-1 rounded-lg transition-all ${
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   activeTab === 'details' ? 'bg-[#181B20] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -87,7 +107,7 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('source')}
-                className={`px-3 py-1 rounded-lg transition-all ${
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   activeTab === 'source' ? 'bg-[#181B20] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -101,24 +121,24 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
                 type="button"
                 onClick={() => onShare(announcement)}
                 title="Share Announcement Card"
-                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors"
+                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
                 <Share2 className="w-4 h-4" />
               </button>
             )}
 
-            {onEdit && (
+            {onEdit && canEdit && (
               <button
                 type="button"
                 onClick={() => onEdit(announcement)}
-                title="Edit Announcement"
-                className="p-1.5 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                title="Edit Announcement (Authorized)"
+                className="p-1.5 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
               </button>
             )}
 
-            {onDelete && (
+            {onDelete && canDelete && (
               <button
                 type="button"
                 onClick={() => {
@@ -127,8 +147,8 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
                     onClose();
                   }
                 }}
-                title="Delete Announcement"
-                className="p-1.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                title="Delete Announcement (Authorized)"
+                className="p-1.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -137,7 +157,7 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 transition-colors"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -146,6 +166,47 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
 
         {/* Modal Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Approval Action Banner (if pending review) */}
+          {announcement.status === 'pending_approval' && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                  <Clock className="w-4 h-4 text-amber-700" />
+                  <span>Pending Campus Approval & Review</span>
+                </div>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  {canApprove
+                    ? 'You have administrative authorization to evaluate and approve this notice for publication.'
+                    : 'Awaiting faculty review from Dean of Student Affairs before appearing college-wide.'}
+                </p>
+              </div>
+
+              {canApprove && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onApprove) onApprove(announcement.id);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Approve & Publish</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const reason = window.prompt('Enter rejection feedback for the organizer:');
+                      if (reason !== null && onReject) onReject(announcement.id, reason);
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           {activeTab === 'details' ? (
             <>
               {/* Top Banner Card: Date Tile + Title */}

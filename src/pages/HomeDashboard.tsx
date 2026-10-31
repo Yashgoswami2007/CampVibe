@@ -13,11 +13,19 @@ import {
   Megaphone,
   CalendarDays,
   Briefcase,
+  Shield,
+  Building2,
+  Users,
+  Check,
+  XCircle,
+  Plus,
 } from 'lucide-react';
 import { CampusAnnouncement, OpportunityFolder, StudentProfile } from '../types';
 import { NoticeCard } from '../components/NoticeCard';
 import { calculateAnnouncementStatus, formatDate } from '../lib/dates';
 import { calculateRelevance } from '../lib/scoring';
+import { Permissions } from '../lib/permissions';
+import { StorageService } from '../lib/storage';
 
 interface HomeDashboardProps {
   profile: StudentProfile;
@@ -27,6 +35,8 @@ interface HomeDashboardProps {
   onToggleSave: (id: string, folder: OpportunityFolder | null) => void;
   onShare?: (a: CampusAnnouncement) => void;
   onNavigate: (view: string) => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string, reason?: string) => void;
 }
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
@@ -37,58 +47,495 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onToggleSave,
   onShare,
   onNavigate,
+  onApprove,
+  onReject,
 }) => {
+  const role = Permissions.getRole(profile);
+  const isSuperAdmin = Permissions.isSuperAdmin(profile);
+  const isHead = Permissions.isHead(profile);
+  const canApprove = Permissions.canApproveAnnouncement(profile);
+
+  // Common calculations
+  const pendingApprovals = announcements.filter((a) => a.status === 'pending_approval');
+  const publishedAnnouncements = announcements.filter((a) => !a.status || a.status === 'published');
+  const clubs = StorageService.getClubs();
+  const allMembers = StorageService.getClubMembers();
+
   // Sort announcements by personalized relevance score
-  const rankedAnnouncements = [...announcements].sort((a, b) => {
+  const rankedAnnouncements = [...publishedAnnouncements].sort((a, b) => {
     const scoreA = calculateRelevance(a, profile).score;
     const scoreB = calculateRelevance(b, profile).score;
     return scoreB - scoreA;
   });
 
-  // Calculate real metrics
-  const strongMatches = rankedAnnouncements.filter(a => calculateRelevance(a, profile).score >= 70);
-  const urgentItems = announcements.filter(a => {
+  const urgentItems = publishedAnnouncements.filter((a) => {
     const s = calculateAnnouncementStatus(a);
     return s.urgency === 'urgent';
   });
-  const upcomingThisWeek = announcements.filter(a => {
+
+  const upcomingThisWeek = publishedAnnouncements.filter((a) => {
     const s = calculateAnnouncementStatus(a);
     return s.urgency === 'upcoming' || s.urgency === 'urgent';
   });
 
-  // Top urgent priority items (max 3)
   const todayPriorities = urgentItems.slice(0, 3);
-
-  // Top recommendations (top 4)
   const topRecommendations = rankedAnnouncements.slice(0, 4);
 
-  // Recently added announcements (newest first)
-  const recentlyAdded = [...announcements]
-    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
-    .slice(0, 4);
-
-  // Chronological upcoming events
-  const chronologicalUpcoming = [...announcements]
-    .filter(a => Boolean(a.event_date))
+  const chronologicalUpcoming = [...publishedAnnouncements]
+    .filter((a) => Boolean(a.event_date))
     .sort((a, b) => (a.event_date || '').localeCompare(b.event_date || ''))
     .slice(0, 4);
 
-  // Events won / total tracked
-  const completedCount = Object.values(opportunityStates).filter(s => s.folder === 'completed').length;
+  const recentlyAdded = [...publishedAnnouncements]
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    .slice(0, 4);
+
+  // Club specific calculations for Head
+  const clubId = profile.assigned_club_id || 'club-gdsc';
+  const myClub = clubs.find((c) => c.id === clubId) || clubs[0];
+  const myClubMembers = allMembers.filter((m) => m.club_id === clubId);
+  const myClubAnnouncements = announcements.filter(
+    (a) => a.club_id === clubId || a.organizer === myClub.name || a.created_by_user_id === profile.id
+  );
+  const myClubLiveNotices = myClubAnnouncements.filter((a) => !a.status || a.status === 'published');
+  const myClubPendingNotices = myClubAnnouncements.filter((a) => a.status === 'pending_approval' || a.status === 'draft');
+
+  /* =========================================================================
+     1. SUPER ADMIN DASHBOARD VIEW (Full Institutional Overview & Queues)
+     ========================================================================= */
+  if (isSuperAdmin) {
+    return (
+      <div className="space-y-8 max-w-6xl mx-auto">
+        {/* Institutional Admin Banner */}
+        <div className="bg-[#121620] text-white rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                  Campus-Wide Administration
+                </span>
+                <span className="text-xs text-slate-400">Moradabad Institute of Technology</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                Institutional Operations & Pulse
+              </h2>
+              <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
+                Centralized authority to govern campus announcements, student societies, approval queues, and cross-department communications.
+              </p>
+            </div>
+
+            {/* Quick Action Buttons */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => onNavigate('approvals')}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 transition-colors shadow-sm flex items-center gap-2 cursor-pointer"
+              >
+                <Clock className="w-4 h-4 text-slate-950" />
+                <span>Review Approvals ({pendingApprovals.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('add')}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Publish Notice</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Institutional KPI Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-800">
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Live Notices</span>
+              <div className="text-2xl font-black text-white mt-0.5">{publishedAnnouncements.length}</div>
+              <span className="text-[10px] text-emerald-400 font-semibold">Active college-wide</span>
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Pending Review</span>
+              <div className="text-2xl font-black text-amber-400 mt-0.5">{pendingApprovals.length}</div>
+              <span className="text-[10px] text-amber-300 font-semibold">Awaiting Dean action</span>
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Campus Clubs</span>
+              <div className="text-2xl font-black text-white mt-0.5">{clubs.length}</div>
+              <span className="text-[10px] text-slate-400">Registered societies</span>
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Club Members</span>
+              <div className="text-2xl font-black text-white mt-0.5">{allMembers.length}</div>
+              <span className="text-[10px] text-indigo-300 font-semibold">Across all branches</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Actionable Urgent Queue: Pending Approvals */}
+        {pendingApprovals.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse" />
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Needs Immediate Review ({pendingApprovals.length})
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate('approvals')}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+              >
+                <span>Open Full Queue</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pendingApprovals.map((ann) => (
+                <div
+                  key={ann.id}
+                  className="p-5 bg-white rounded-2xl border border-amber-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        {ann.category} · {ann.organizer}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300">
+                        Pending
+                      </span>
+                    </div>
+                    <h4
+                      onClick={() => onSelectAnnouncement(ann)}
+                      className="text-sm font-bold text-slate-900 hover:text-indigo-600 cursor-pointer line-clamp-1"
+                    >
+                      {ann.title}
+                    </h4>
+                    <p className="text-xs text-slate-500 line-clamp-2">{ann.description}</p>
+                    <div className="text-[11px] text-slate-400">
+                      Target: {ann.target_departments?.join(', ') || 'All Depts'} · {ann.venue || 'Campus'}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => onSelectAnnouncement(ann)}
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                    >
+                      Preview Full Notice
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onApprove && onApprove(ann.id)}
+                        className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Approve</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const r = window.prompt('Enter rejection feedback:');
+                          if (r !== null && onReject) onReject(ann.id, r);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Campus Clubs & Organizations Overview */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-slate-800">
+              Active Student Clubs & Societies
+            </h3>
+            <button
+              type="button"
+              onClick={() => onNavigate('clubs')}
+              className="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>Manage Clubs Directory</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            {clubs.slice(0, 3).map((club) => {
+              const count = allMembers.filter((m) => m.club_id === club.id).length;
+              const notifCount = announcements.filter((a) => a.club_id === club.id).length;
+              return (
+                <div key={club.id} className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50">
+                      {club.category}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-slate-500">{count} Members</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 leading-snug">{club.name}</h4>
+                  <div className="text-[11px] text-slate-500">Lead: {club.lead_name}</div>
+                  <div className="pt-2 border-t border-slate-100 text-[10px] text-slate-400 flex items-center justify-between">
+                    <span>{notifCount} notices posted</span>
+                    <span>{club.code}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* College-Wide Recent Announcements */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">
+                Institutional Announcement Feed
+              </h3>
+              <p className="text-xs text-slate-400">All published notices across faculties and student branches</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('explore')}
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
+            >
+              <span>View All</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recentlyAdded.map((ann) => (
+              <NoticeCard
+                key={`adm-${ann.id}`}
+                announcement={ann}
+                profile={profile}
+                currentFolder={opportunityStates[ann.id]?.folder || null}
+                onSelect={onSelectAnnouncement}
+                onToggleSave={onToggleSave}
+                onShare={onShare}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  /* =========================================================================
+     2. CLUB HEAD DASHBOARD VIEW (Club-Specific Leadership Hub)
+     ========================================================================= */
+  if (isHead) {
+    return (
+      <div className="space-y-8 max-w-6xl mx-auto">
+        {/* Club Executive Header Banner */}
+        <div className="bg-[#121620] text-white rounded-3xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                  {myClub.code} Lead Dashboard
+                </span>
+                {profile.explicit_permissions?.can_approve_announcements && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-400 text-slate-950 font-mono">
+                    *Direct Approval Authority Granted
+                  </span>
+                )}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                {myClub.name}
+              </h2>
+              <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
+                {myClub.description}
+              </p>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => onNavigate('add')}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Post Club Notice</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('students')}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition-colors border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Users className="w-4 h-4" />
+                <span>Member Roster</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Club Specific KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-800">
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Club Notices Live</span>
+              <div className="text-2xl font-black text-white mt-0.5">{myClubLiveNotices.length}</div>
+              <span className="text-[10px] text-emerald-400 font-semibold">Active campus circulars</span>
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">In Review / Draft</span>
+              <div className="text-2xl font-black text-amber-400 mt-0.5">{myClubPendingNotices.length}</div>
+              <span className="text-[10px] text-amber-300 font-semibold">Submissions in progress</span>
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Active Members</span>
+              <div className="text-2xl font-black text-white mt-0.5">{myClubMembers.length || myClub.member_count}</div>
+              <span className="text-[10px] text-slate-400">Registered student roster</span>
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Next Scheduled Meet</span>
+              <div className="text-sm font-bold text-white mt-1.5 truncate">{myClub.meeting_schedule?.split(',')[0] || 'Wednesday'}</div>
+              <span className="text-[10px] text-indigo-300 font-semibold">Seminar Hall 2</span>
+            </div>
+          </div>
+        </div>
+
+        {/* My Club's Notices & Statuses */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">
+                {myClub.name} Activity Pipeline
+              </h3>
+              <p className="text-xs text-slate-400">Notices, hackathons, and workshops organized by your club</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('add')}
+              className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer"
+            >
+              <span>+ Post New Club Event</span>
+            </button>
+          </div>
+
+          {myClubAnnouncements.length === 0 ? (
+            <div className="p-8 text-center bg-white rounded-3xl border border-slate-200">
+              <Megaphone className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-xs text-slate-500 font-medium">No notices published under {myClub.name} yet.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {myClubAnnouncements.map((ann) => (
+                <NoticeCard
+                  key={`club-${ann.id}`}
+                  announcement={ann}
+                  profile={profile}
+                  currentFolder={opportunityStates[ann.id]?.folder || null}
+                  onSelect={onSelectAnnouncement}
+                  onToggleSave={onToggleSave}
+                  onShare={onShare}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Club Member Roster Preview */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-slate-800">
+              Club Core Team & Members ({myClubMembers.length})
+            </h3>
+            <button
+              type="button"
+              onClick={() => onNavigate('students')}
+              className="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>Manage Roster</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            {myClubMembers.slice(0, 3).map((m) => (
+              <div key={m.id} className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-slate-900">{m.student_name}</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    m.club_role === 'Core Team' ? 'bg-indigo-100 text-indigo-900' : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {m.club_role}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400">{m.department} · {m.academic_year}</div>
+                <div className="text-[10px] text-slate-400 font-mono truncate">{m.student_email}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* College-wide Upcoming Events */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-slate-800">
+              Campus-Wide Events (Avoid Conflict Slots)
+            </h3>
+            <button
+              type="button"
+              onClick={() => onNavigate('calendar')}
+              className="text-xs font-semibold text-slate-400 hover:text-slate-700 flex items-center gap-1 transition"
+            >
+              <span>View Master Calendar</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {chronologicalUpcoming.slice(0, 2).map((ann) => (
+              <NoticeCard
+                key={`up-${ann.id}`}
+                announcement={ann}
+                profile={profile}
+                currentFolder={opportunityStates[ann.id]?.folder || null}
+                onSelect={onSelectAnnouncement}
+                onToggleSave={onToggleSave}
+                onShare={onShare}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  /* =========================================================================
+     3. STUDENT DASHBOARD VIEW (Personalized Student Opportunity Engine)
+     ========================================================================= */
+  const completedCount = Object.values(opportunityStates).filter((s) => s.folder === 'completed').length;
   const totalTracked = Object.keys(opportunityStates).length;
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
-
-      {/* Dark Analytics Banner Card — Matching reference design */}
+      {/* Dark Personalized Student Analytics Banner Card */}
       <div className="bg-[#121620] text-white rounded-3xl p-6 md:p-7 shadow-lg relative overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
           {/* Metric 1: Upcoming Events */}
           <div className="md:col-span-4 flex flex-col">
             <span className="text-xs font-semibold text-slate-400 mb-3 tracking-wide">Upcoming events</span>
             <div className="flex items-center space-x-4">
-              {/* Circular chart */}
-              <div className="relative w-16 h-16 rounded-full flex items-center justify-center shrink-0" style={{ background: `conic-gradient(#FFFFFF 0% ${Math.round((upcomingThisWeek.length / Math.max(announcements.length, 1)) * 100)}%, #282E3E ${Math.round((upcomingThisWeek.length / Math.max(announcements.length, 1)) * 100)}% 100%)` }}>
+              <div
+                className="relative w-16 h-16 rounded-full flex items-center justify-center shrink-0"
+                style={{
+                  background: `conic-gradient(#FFFFFF 0% ${Math.round(
+                    (upcomingThisWeek.length / Math.max(publishedAnnouncements.length, 1)) * 100
+                  )}%, #282E3E ${Math.round(
+                    (upcomingThisWeek.length / Math.max(publishedAnnouncements.length, 1)) * 100
+                  )}% 100%)`,
+                }}
+              >
                 <div className="w-10 h-10 bg-[#121620] rounded-full" />
               </div>
               <div>
@@ -98,202 +545,85 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="hidden md:block w-px h-12 bg-slate-800" />
-
-          {/* Metric 2: Match Distribution */}
-          <div className="md:col-span-3 flex flex-col pl-0 md:pl-2">
-            <span className="text-xs font-semibold text-slate-400 mb-4 tracking-wide">Match distribution</span>
-            <div className="flex items-end space-x-4 h-11">
-              {[
-                { h: 'h-3.5', label: '90+', active: false },
-                { h: 'h-9', label: '70+', active: true },
-                { h: 'h-5', label: '50+', active: false },
-                { h: 'h-3', label: '30+', active: false },
-                { h: 'h-2', label: '<30', active: false },
-              ].map((bar, i) => (
-                <div key={i} className="flex flex-col items-center space-y-1.5">
-                  <div className={`${bar.active ? 'w-1.5 bg-white' : 'w-1 bg-slate-700'} ${bar.h} rounded-full`} />
-                  <span className={`text-[10px] ${bar.active ? 'text-slate-300 font-semibold' : 'text-slate-500'} font-medium`}>{bar.label}</span>
-                </div>
-              ))}
+          {/* Metric 2: Tracked Opportunities */}
+          <div className="md:col-span-4 flex flex-col border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
+            <span className="text-xs font-semibold text-slate-400 mb-3 tracking-wide">Tracked Pipeline</span>
+            <div className="flex items-center space-x-4">
+              <div
+                className="relative w-16 h-16 rounded-full flex items-center justify-center shrink-0"
+                style={{
+                  background: `conic-gradient(#FFFFFF 0% ${Math.round(
+                    (totalTracked / Math.max(publishedAnnouncements.length, 1)) * 100
+                  )}%, #282E3E ${Math.round(
+                    (totalTracked / Math.max(publishedAnnouncements.length, 1)) * 100
+                  )}% 100%)`,
+                }}
+              >
+                <div className="w-10 h-10 bg-[#121620] rounded-full" />
+              </div>
+              <div>
+                <div className="text-xl font-bold tracking-tight text-white">{totalTracked}</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">{completedCount} Completed / Attended</div>
+              </div>
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="hidden md:block w-px h-12 bg-slate-800" />
-
-          {/* Metric 3: Tracked / Total */}
-          <div className="md:col-span-4 flex items-center justify-between pl-0 md:pl-2">
+          {/* Profile Match Score */}
+          <div className="md:col-span-4 bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between">
             <div>
-              <span className="text-xs font-semibold text-slate-400 tracking-wide block mb-1.5">Events tracked</span>
-              <div className="text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-none">
-                {completedCount}/{totalTracked || announcements.length}
-              </div>
+              <span className="text-xs text-slate-400 font-medium block">Personal Focus</span>
+              <span className="text-sm font-bold text-white block mt-0.5">{profile.department}</span>
+              <span className="text-[11px] text-emerald-400 font-mono mt-1 block">
+                {profile.academic_year} · Active Matching
+              </span>
             </div>
-            {/* Trophy Icon */}
-            <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
-              <svg className="w-16 h-16 drop-shadow-md" fill="none" viewBox="0 0 64 64">
-                <rect fill="#6B7280" height="6" rx="2" width="20" x="22" y="52" />
-                <rect fill="#D97706" height="6" width="12" x="26" y="47" />
-                <path d="M18 16H46V28C46 36 39.5 42 32 42C24.5 42 18 36 18 28V16Z" fill="#FBBF24" />
-                <path d="M22 18H42V28C42 34 37 38 32 38C27 38 22 34 22 28V18Z" fill="#F59E0B" />
-                <path d="M18 20H13C11 20 10 22 10 24C10 29 13 32 18 32V29C15 29 13 27 13 24H18V20Z" fill="#F59E0B" />
-                <path d="M46 20H51C53 20 54 22 54 24C54 29 51 32 46 32V29C49 29 51 27 51 24H46V20Z" fill="#F59E0B" />
-                <circle cx="32" cy="27" fill="#EF4444" r="7" />
-                <text fill="#FFFFFF" fontFamily="sans-serif" fontSize="7.5" fontWeight="bold" textAnchor="middle" x="32" y="30.5">#1</text>
-                <path d="M28 32L26 40L30 38L32 41L33 34" fill="#DC2626" />
-                <path d="M36 32L38 40L34 38L32 41L31 34" fill="#B91C1C" />
-              </svg>
-            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('interests')}
+              className="px-3 py-1.5 rounded-xl bg-white text-slate-900 text-xs font-bold hover:bg-slate-100 transition cursor-pointer"
+            >
+              My Interests
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Recommended For You Section */}
+      {/* Top Recommendations for Student */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-800">Recommended For You</h2>
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <h3 className="text-base font-bold text-slate-800">
+                Personalized Matches for {profile.name.split(' ')[0]}
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400">
+              Scored based on your profile interests in {profile.interests?.slice(0, 3).join(', ')}
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => onNavigate('explore')}
-            className="text-xs font-semibold text-slate-400 hover:text-slate-700 transition"
+            className="text-xs font-semibold text-slate-400 hover:text-slate-700 flex items-center gap-1 transition"
           >
-            view all
+            <span>View All</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {topRecommendations.slice(0, 2).map((ann, idx) => {
-            const rel = calculateRelevance(ann, profile);
-            const bgColors = ['bg-[#D4F5EC]', 'bg-white'];
-            const borderColors = ['border-[#BDEFE2]/50', 'border-slate-100'];
-            return (
-              <article
-                key={ann.id}
-                onClick={() => onSelectAnnouncement(ann)}
-                className={`${bgColors[idx]} rounded-2xl p-3.5 flex flex-col justify-between ${borderColors[idx]} border shadow-sm min-h-[220px] cursor-pointer hover:shadow-md transition-shadow`}
-              >
-                <div>
-                  {/* SVG Image Header */}
-                  <div className="w-full h-24 rounded-xl overflow-hidden mb-3 bg-white/60 shadow-xs relative">
-                    <svg className="w-full h-full" viewBox="0 0 200 100">
-                      <rect fill={idx === 0 ? '#E2F6F0' : '#F9F6F0'} height="100" width="200" />
-                      {idx === 0 ? (
-                        <>
-                          <rect fill="#C2A180" height="6" rx="1" width="150" x="25" y="60" />
-                          <rect fill="#AF8F70" height="8" rx="1" width="150" x="25" y="85" />
-                          <rect fill="#A08060" height="30" width="6" x="35" y="60" />
-                          <rect fill="#A08060" height="30" width="6" x="160" y="60" />
-                          <rect fill="#FDE047" height="52" rx="4" stroke="#CA8A04" strokeWidth="1" width="10" x="48" y="24" />
-                          <rect fill="#F472B6" height="56" rx="4" stroke="#DB2777" strokeWidth="1" width="10" x="68" y="20" />
-                          <rect fill="#60A5FA" height="48" rx="4" stroke="#2563EB" strokeWidth="1" width="10" x="88" y="28" />
-                          <rect fill="#FB923C" height="54" rx="4" stroke="#EA580C" strokeWidth="1" width="10" x="108" y="22" />
-                          <rect fill="#38BDF8" height="51" rx="4" stroke="#0284C7" strokeWidth="1" width="10" x="128" y="25" />
-                          <rect fill="#C084FC" height="58" rx="4" stroke="#9333EA" strokeWidth="1" width="10" x="148" y="18" />
-                        </>
-                      ) : (
-                        <>
-                          <line stroke="#EDE8DF" strokeWidth="1" x1="0" x2="200" y1="30" y2="30" />
-                          <line stroke="#EDE8DF" strokeWidth="1" x1="0" x2="200" y1="65" y2="65" />
-                          <rect fill="#FFFFFF" height="70" rx="4" stroke="#E2E8F0" strokeWidth="2" width="55" x="70" y="15" />
-                          <rect fill="#0EA5E9" height="30" opacity="0.8" rx="2" width="40" x="78" y="22" />
-                          <rect fill="#F1F5F9" height="26" rx="8" stroke="#CBD5E1" width="16" x="42" y="32" />
-                          <rect fill="#EC4899" height="60" rx="2" width="4" x="142" y="20" />
-                          <rect fill="#10B981" height="56" rx="2" width="4" x="150" y="24" />
-                          <circle cx="50" cy="72" fill="#FED7AA" r="8" stroke="#FDBA74" />
-                        </>
-                      )}
-                    </svg>
-                  </div>
-                  <h3 className="text-xs font-bold text-slate-900 leading-snug">{ann.title}</h3>
-                </div>
-                {idx === 0 ? (
-                  <span className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 flex items-center space-x-1 mt-3 cursor-pointer">
-                    <span>view details</span>
-                    <span className="text-xs">&gt;</span>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectAnnouncement(ann);
-                    }}
-                    className="w-full py-2 bg-[#181B20] hover:bg-black text-white text-[11px] font-semibold rounded-xl transition shadow-xs mt-3"
-                  >
-                    View details
-                  </button>
-                )}
-              </article>
-            );
-          })}
-          {/* Empty Slots */}
-          {[0, 1].map((_, i) => (
-            <div
-              key={`empty-${i}`}
-              onClick={() => onNavigate('explore')}
-              className="border-2 border-dashed border-slate-200 rounded-2xl p-3.5 flex flex-col items-center justify-center min-h-[220px] bg-slate-50/40 hover:bg-slate-50 transition cursor-pointer"
-            >
-              <div className="w-8 h-8 rounded-full border border-slate-300 flex items-center justify-center text-slate-400 mb-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <span className="text-xs font-semibold text-slate-400">Explore more</span>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {topRecommendations.map((ann) => (
+            <NoticeCard
+              key={`rec-${ann.id}`}
+              announcement={ann}
+              profile={profile}
+              currentFolder={opportunityStates[ann.id]?.folder || null}
+              onSelect={onSelectAnnouncement}
+              onToggleSave={onToggleSave}
+              onShare={onShare}
+            />
           ))}
-        </div>
-      </section>
-
-      {/* Quick Actions Row */}
-      <section className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        {/* Smart Notice Card (Cream/Yellow) */}
-        <div
-          onClick={() => onNavigate('add')}
-          className="md:col-span-6 bg-[#FCF7E8] rounded-2xl p-5 border border-amber-100/70 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow"
-        >
-          <div className="pr-2">
-            <h3 className="text-xs font-bold text-slate-900 mb-1.5">Smart Notice</h3>
-            <p className="text-[11px] text-slate-500 leading-snug">
-              Paste a notice, AI turns it into a clear campus update
-            </p>
-          </div>
-          <div className="w-16 h-16 shrink-0 relative flex items-center justify-center">
-            <svg className="w-14 h-14 drop-shadow-sm" fill="none" viewBox="0 0 60 60">
-              <rect fill="#FFFFFF" height="48" rx="5" stroke="#E5E7EB" width="36" x="12" y="6" />
-              <circle cx="16" cy="14" fill="#60A5FA" r="7" />
-              <text fill="#FFFFFF" fontFamily="sans-serif" fontSize="7" fontWeight="bold" textAnchor="middle" x="16" y="17">A+</text>
-              <rect fill="#CBD5E1" height="2" rx="1" width="18" x="25" y="14" />
-              <rect fill="#E2E8F0" height="2" rx="1" width="27" x="16" y="25" />
-              <rect fill="#E2E8F0" height="2" rx="1" width="22" x="16" y="30" />
-              <rect fill="#FDE047" height="6" rx="1.5" width="6" x="16" y="36" />
-              <rect fill="#E2E8F0" height="2" rx="1" width="18" x="25" y="38" />
-              <rect fill="#F43F5E" height="4" rx="2" width="18" x="16" y="44" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Campus Calendar Card */}
-        <div
-          onClick={() => onNavigate('calendar')}
-          className="md:col-span-3 bg-[#F4F5F8] rounded-2xl p-5 border border-slate-100 flex flex-col justify-center cursor-pointer hover:shadow-md transition-shadow"
-        >
-          <h3 className="text-xs font-bold text-slate-900 mb-1.5">Campus Calendar</h3>
-          <p className="text-[11px] text-slate-500 leading-snug">
-            View and track all upcoming campus events and deadlines.
-          </p>
-        </div>
-
-        {/* Weekly Briefing Card */}
-        <div
-          onClick={() => onNavigate('briefing')}
-          className="md:col-span-3 bg-[#F4F5F8] rounded-2xl p-5 border border-slate-100 flex flex-col justify-center cursor-pointer hover:shadow-md transition-shadow"
-        >
-          <h3 className="text-xs font-bold text-slate-900 mb-1.5">Weekly Briefing</h3>
-          <p className="text-[11px] text-slate-500 leading-snug">
-            AI synthesized summary of your campus priorities this week.
-          </p>
         </div>
       </section>
 
@@ -307,9 +637,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 Needs Immediate Attention
               </h3>
             </div>
-            <span className="text-xs text-slate-400 font-medium">
-              Action required within 48h
-            </span>
+            <span className="text-xs text-slate-400 font-medium">Action required within 48h</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
@@ -326,9 +654,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                       {calculateAnnouncementStatus(item).countdownText}
                     </span>
                   </div>
-                  <h4 className="text-sm font-bold text-slate-900 line-clamp-2 leading-snug">
-                    {item.title}
-                  </h4>
+                  <h4 className="text-sm font-bold text-slate-900 line-clamp-2 leading-snug">{item.title}</h4>
                   <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
                     {item.required_action || item.urgency_reason || item.description}
                   </p>
@@ -349,9 +675,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       {/* Upcoming on Campus */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-800">
-            Upcoming on Campus
-          </h3>
+          <h3 className="text-base font-bold text-slate-800">Upcoming on Campus</h3>
           <button
             type="button"
             onClick={() => onNavigate('calendar')}
@@ -381,19 +705,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-slate-800">
-              Recently Added
-            </h3>
-            <p className="text-xs text-slate-400">Latest circulars, notices, and club registrations</p>
+            <h3 className="text-base font-bold text-slate-800">Recently Added</h3>
+            <p className="text-xs text-slate-400">Latest circulars, notices, and opportunities</p>
           </div>
-
-          <button
-            type="button"
-            onClick={() => onNavigate('add')}
-            className="text-xs font-semibold text-[#1E3A8A] hover:text-blue-700 flex items-center gap-1 transition"
-          >
-            <span>+ Add Notice</span>
-          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -94,42 +94,55 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {DEMO_PROFILES.map((p) => {
             const isSelected = p.id === activeProfile.id;
+            const pRole = p.role || 'student';
+            const roleBadgeStyle =
+              pRole === 'super_admin'
+                ? 'bg-indigo-100 text-indigo-900 border-indigo-200'
+                : pRole === 'head'
+                ? 'bg-emerald-100 text-emerald-900 border-emerald-200'
+                : 'bg-blue-100 text-blue-900 border-blue-200';
+
             return (
               <div
                 key={p.id}
                 onClick={() => {
                   onSelectProfile(p);
-                  showToast(`Switched active profile to ${p.name}!`);
+                  showToast(`Switched active profile to ${p.name} (${pRole.toUpperCase()})!`);
                 }}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
                   isSelected
-                    ? 'bg-[#F4F5F8] border-slate-800 shadow-2xs ring-1 ring-slate-800'
+                    ? 'bg-[#F4F5F8] border-slate-800 shadow-2xs ring-2 ring-slate-800'
                     : 'bg-[#F8F9FA] border-slate-200/80 hover:border-slate-400'
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-900">
-                    <span>{p.name}</span>
-                    {isSelected && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-[#181B20] text-white">
-                        Active
-                      </span>
-                    )}
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1.5">
+                    <span className="truncate">{p.name}</span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono uppercase font-black border ${roleBadgeStyle}`}>
+                      {pRole.replace('_', ' ')}
+                      {p.explicit_permissions?.can_approve_announcements && ' *'}
+                    </span>
                   </div>
-                  <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-                    {p.department} ({p.academic_year})
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    {p.title || `${p.department} (${p.academic_year})`}
                   </div>
+                  {p.assigned_club_name && (
+                    <div className="text-[10px] font-semibold text-emerald-700 mt-1">
+                      Assigned Club: {p.assigned_club_name}
+                    </div>
+                  )}
                   <div className="text-[11px] text-slate-600 mt-2 line-clamp-2">
                     <span className="font-semibold text-slate-900">Interests: </span>
                     {p.interests.slice(0, 3).join(', ')}
                   </div>
                 </div>
 
-                <div className="pt-3 mt-3 border-t border-slate-200/70 text-[10px] text-slate-500">
-                  Goal: {p.career_goals[0]}
+                <div className="pt-3 mt-3 border-t border-slate-200/70 text-[10px] text-slate-500 flex items-center justify-between">
+                  <span>Goal: {p.career_goals[0]}</span>
+                  {isSelected && <span className="font-bold text-slate-900">Active</span>}
                 </div>
               </div>
             );

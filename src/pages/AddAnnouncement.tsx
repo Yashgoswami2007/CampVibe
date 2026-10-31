@@ -10,13 +10,16 @@ import {
   Image as ImageIcon,
   Trash2,
 } from 'lucide-react';
-import { AnnouncementCategory, AnnouncementKind, CampusAnnouncement } from '../types';
+import { AnnouncementCategory, AnnouncementKind, CampusAnnouncement, StudentProfile } from '../types';
 import { checkConflictsAndDuplicates, ConflictNotice } from '../lib/conflicts';
+import { Permissions } from '../lib/permissions';
 
 interface AddAnnouncementProps {
+  profile: StudentProfile;
   existingAnnouncements: CampusAnnouncement[];
   onAnnouncementCreated: (announcement: CampusAnnouncement) => void;
   onCancel: () => void;
+  onSwitchPersona?: () => void;
 }
 
 const SAMPLE_CHIPS = [
@@ -64,8 +67,11 @@ const CATEGORIES: AnnouncementCategory[] = [
 ];
 
 export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
+  profile,
   existingAnnouncements,
   onAnnouncementCreated,
+  onCancel,
+  onSwitchPersona,
 }) => {
   const [inputText, setInputText] = useState('');
   const [sourceType, setSourceType] = useState<'whatsapp' | 'email' | 'instagram' | 'poster' | 'notice_board' | 'circular'>('whatsapp');
@@ -77,6 +83,49 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
   // Extracted item state for preview & editing
   const [extractedData, setExtractedData] = useState<CampusAnnouncement | null>(null);
   const [conflicts, setConflicts] = useState<ConflictNotice[]>([]);
+
+  // Role Gate: Student cannot create announcements per matrix
+  if (Permissions.isStudent(profile)) {
+    return (
+      <div className="max-w-xl mx-auto py-16 px-4 text-center space-y-5 bg-white rounded-3xl border border-slate-200/80 shadow-xs">
+        <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-sm">
+          <AlertTriangle className="w-8 h-8" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+            Announcement Creation Restricted
+          </h2>
+          <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
+            According to the <strong>Role and Permission Matrix</strong>, Student accounts have read-only access to published campus notices (<em>Create Announcements: No</em>). Creation authority is reserved for <strong>Club Heads</strong> (for their assigned club) and <strong>Super Admins</strong>.
+          </p>
+        </div>
+
+        <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-left max-w-sm mx-auto text-xs space-y-1.5">
+          <div className="font-bold text-slate-800">Current Persona:</div>
+          <div className="flex items-center justify-between text-slate-600">
+            <span>Name:</span>
+            <span className="font-semibold">{profile.name}</span>
+          </div>
+          <div className="flex items-center justify-between text-slate-600">
+            <span>Role:</span>
+            <span className="font-semibold uppercase text-blue-700">Student</span>
+          </div>
+        </div>
+
+        {onSwitchPersona && (
+          <div>
+            <button
+              type="button"
+              onClick={onSwitchPersona}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#181B20] text-white hover:bg-slate-800 transition-colors cursor-pointer shadow-sm"
+            >
+              Switch to Aarav Sen (Club Head) or Dr. Rajesh Sharma (Admin)
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -249,19 +298,46 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
       setErrorMsg('Please provide a title for the announcement.');
       return;
     }
-    onAnnouncementCreated(extractedData);
+
+    const isHead = Permissions.isHead(profile);
+    const canBypass = Boolean(profile.explicit_permissions?.can_bypass_approval);
+    const status = isHead && !canBypass ? 'pending_approval' : 'published';
+
+    const payload: CampusAnnouncement = {
+      ...extractedData,
+      status,
+      club_id: isHead ? (profile.assigned_club_id || extractedData.club_id) : extractedData.club_id,
+      created_by_user_id: profile.id,
+      created_by_name: profile.name,
+      created_by_role: profile.role || 'student',
+      organizer: isHead && profile.assigned_club_name ? profile.assigned_club_name : (extractedData.organizer || 'MiT Campus'),
+    };
+    onAnnouncementCreated(payload);
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-          AI Announcement Ingestion Studio
-        </h2>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Paste messy forwards from WhatsApp, circulars, or upload posters. MiT AI extracts verified dates, venue, and deadlines.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+              {Permissions.isHead(profile) ? `Post ${profile.assigned_club_name || 'Club'} Announcement` : 'AI Announcement Ingestion Studio'}
+            </h2>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+              Permissions.isHead(profile)
+                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                : 'bg-indigo-100 text-indigo-900 border border-indigo-300'
+            }`}>
+              {Permissions.isHead(profile) ? 'Club Head Scope' : 'Super Admin Scope'}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {Permissions.isHead(profile)
+              ? `Authorized to submit notices on behalf of ${profile.assigned_club_name || 'your assigned club'}. Notices will go to the Approval Queue.`
+              : 'Paste forwards from WhatsApp, circulars, or upload posters. MiT AI extracts verified dates, venue, and deadlines.'}
+          </p>
+        </div>
       </div>
 
       {!extractedData ? (
@@ -533,14 +609,17 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                    Organizer
+                    Organizer {Permissions.isHead(profile) && '(Locked to Assigned Club)'}
                   </label>
                   <input
                     type="text"
-                    value={extractedData.organizer}
+                    value={Permissions.isHead(profile) ? (profile.assigned_club_name || extractedData.organizer) : extractedData.organizer}
+                    disabled={Permissions.isHead(profile)}
                     onChange={(e) => setExtractedData({ ...extractedData, organizer: e.target.value })}
                     placeholder="e.g. E-Cell, GDSC"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:border-slate-800 focus:outline-none"
+                    className={`w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:border-slate-800 focus:outline-none ${
+                      Permissions.isHead(profile) ? 'bg-slate-100 cursor-not-allowed text-slate-600 font-semibold' : ''
+                    }`}
                   />
                 </div>
 
@@ -720,7 +799,11 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
                   className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#181B20] text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Confirm and Publish</span>
+                  <span>
+                    {Permissions.isHead(profile) && !profile.explicit_permissions?.can_bypass_approval
+                      ? 'Submit for Faculty Approval'
+                      : 'Confirm & Publish College-Wide'}
+                  </span>
                 </button>
               </div>
             </div>
