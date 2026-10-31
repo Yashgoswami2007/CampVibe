@@ -3,7 +3,6 @@ import {
   Sparkles,
   Check,
   User,
-  GraduationCap,
   Briefcase,
   Layers,
   Save,
@@ -119,18 +118,18 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-extrabold text-[#292A28] tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
             Student Profile & Personalization Radar
           </h2>
-          <p className="text-xs text-[#787774]">
-            Tune your academic interests and career targets to calibrate Campus Radar's recommendation algorithm.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Calibrate your academic interests and career targets to personalize recommendations at MiT.
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleSave}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#C96B35] text-white hover:bg-[#B85E2B] transition-colors shadow-xs"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#181B20] text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
         >
           <Save className="w-4 h-4" />
           <span>Save Changes</span>
@@ -138,9 +137,9 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
       </div>
 
       {showSavedToast && (
-        <div className="p-3 rounded-2xl bg-[#EAF5EF] border border-[#CDE8D8] text-xs font-semibold text-[#2D6A4F] flex items-center gap-2 animate-in fade-in duration-100">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Preferences updated! Personalized recommendations recalculated across the app.</span>
+        <div className="p-3 rounded-2xl bg-[#D4F5EC] border border-emerald-300 text-xs font-semibold text-emerald-900 flex items-center gap-2 animate-in fade-in duration-100">
+          <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+          <span>Preferences updated! Personalized recommendations recalculated across MiT dashboard.</span>
         </div>
       )}
 
@@ -148,47 +147,47 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
         {/* Left Column: Form Controls (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
           {/* Academic Profile */}
-          <div className="bg-white border border-[#E0DBD0] rounded-3xl p-5 shadow-xs space-y-4">
-            <div className="text-xs font-bold text-[#292A28] pb-2 border-b border-[#F2EFE9] flex items-center gap-2">
-              <User className="w-4 h-4 text-[#C96B35]" />
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-4">
+            <div className="text-xs font-bold text-slate-900 pb-2 border-b border-slate-100 flex items-center gap-2">
+              <User className="w-4 h-4 text-slate-700" />
               <span>Academic Identity</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-bold text-[#8C8880] uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                   Full Name
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-[#E0DBD0] text-xs text-[#292A28] font-bold focus:border-[#C96B35] focus:outline-none"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 font-bold focus:border-slate-800 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-[#8C8880] uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                   College / University
                 </label>
                 <input
                   type="text"
                   value={college}
                   onChange={(e) => setCollege(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-[#E0DBD0] text-xs text-[#292A28] focus:border-[#C96B35] focus:outline-none"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:border-slate-800 focus:outline-none"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-bold text-[#8C8880] uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                   Department
                 </label>
                 <select
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-[#E0DBD0] text-xs text-[#292A28] focus:border-[#C96B35] focus:outline-none bg-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:border-slate-800 focus:outline-none bg-white cursor-pointer"
                 >
                   {DEPARTMENTS.map((dept) => (
                     <option key={dept} value={dept}>{dept}</option>
@@ -197,13 +196,13 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-[#8C8880] uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                   Academic Year
                 </label>
                 <select
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-[#E0DBD0] text-xs text-[#292A28] focus:border-[#C96B35] focus:outline-none bg-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:border-slate-800 focus:outline-none bg-white cursor-pointer"
                 >
                   {YEARS.map((y) => (
                     <option key={y} value={y}>{y}</option>
@@ -214,13 +213,13 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
           </div>
 
           {/* Interests Multi-Select */}
-          <div className="bg-white border border-[#E0DBD0] rounded-3xl p-5 shadow-xs space-y-3.5">
-            <div className="flex items-center justify-between pb-2 border-b border-[#F2EFE9]">
-              <span className="text-xs font-bold text-[#292A28] flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#C96B35]" />
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-slate-700" />
                 Areas of Interest ({interests.length} selected)
               </span>
-              <span className="text-[11px] text-[#787774]">40% algorithm weight</span>
+              <span className="text-[11px] text-slate-400 font-medium">40% algorithm weight</span>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -231,10 +230,10 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
                     key={interest}
                     type="button"
                     onClick={() => toggleInterest(interest)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
                       isSelected
-                        ? 'bg-[#C96B35] text-white border-[#C96B35] shadow-2xs'
-                        : 'bg-[#FAF8F3] text-[#5C5A56] border-[#E8E5DF] hover:border-[#C96B35]/40'
+                        ? 'bg-[#181B20] text-white border-[#181B20] shadow-2xs'
+                        : 'bg-[#F8F9FA] text-slate-700 border-slate-200/80 hover:border-slate-400'
                     }`}
                   >
                     {isSelected && <Check className="w-3.5 h-3.5" />}
@@ -246,9 +245,9 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
           </div>
 
           {/* Career Targets */}
-          <div className="bg-white border border-[#E0DBD0] rounded-3xl p-5 shadow-xs space-y-3.5">
-            <div className="text-xs font-bold text-[#292A28] pb-2 border-b border-[#F2EFE9] flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-[#C96B35]" />
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-3.5">
+            <div className="text-xs font-bold text-slate-900 pb-2 border-b border-slate-100 flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-slate-700" />
               <span>Career Goals & Aspirations (20% weight)</span>
             </div>
 
@@ -256,13 +255,13 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
               {careerGoals.map((goal) => (
                 <span
                   key={goal}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#FDF3EB] text-[#C96B35] border border-[#F8DCBA] text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#EBF1FD] text-blue-800 border border-blue-200/70 text-xs font-semibold"
                 >
                   <span>{goal}</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveGoal(goal)}
-                    className="hover:text-[#911C13]"
+                    className="hover:text-rose-600 font-bold"
                   >
                     ×
                   </button>
@@ -275,12 +274,12 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
                 type="text"
                 value={newGoalInput}
                 onChange={(e) => setNewGoalInput(e.target.value)}
-                placeholder="Add career goal (e.g. AI Researcher, Quantitative Analyst, Founder)..."
-                className="flex-1 p-2.5 rounded-xl border border-[#E0DBD0] text-xs text-[#292A28] focus:border-[#C96B35] focus:outline-none"
+                placeholder="Add career goal (e.g. AI Engineer, Quant Trader, Founder)..."
+                className="flex-1 p-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:border-slate-800 focus:outline-none"
               />
               <button
                 type="submit"
-                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#FAF8F3] border border-[#E0DBD0] text-[#292A28] hover:bg-[#EFECE6]"
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#F8F9FA] border border-slate-200 text-slate-800 hover:bg-slate-100 cursor-pointer"
               >
                 Add Goal
               </button>
@@ -289,44 +288,44 @@ export const MyInterestsPage: React.FC<MyInterestsPageProps> = ({
         </div>
 
         {/* Right Column: Live Recommendation Simulator (5 cols) */}
-        <div className="lg:col-span-5 bg-[#FAF8F3] border border-[#E0DBD0] rounded-3xl p-5 shadow-xs space-y-4">
-          <div className="pb-3 border-b border-[#EAE6DF]">
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-[#C96B35] text-white uppercase tracking-wider mb-1">
+        <div className="lg:col-span-5 bg-[#F8F9FA] border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-4">
+          <div className="pb-3 border-b border-slate-200/60">
+            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#181B20] text-white uppercase tracking-wider mb-1">
               <Sparkles className="w-3 h-3" />
               Live Matching Engine
             </div>
-            <h3 className="text-sm font-bold text-[#292A28]">
+            <h3 className="text-sm font-bold text-slate-900">
               Instant Recommendation Preview
             </h3>
-            <p className="text-[11px] text-[#787774] mt-0.5">
-              Toggle interests on the left to watch these match scores update in real time!
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Toggle interests on the left to watch match scores update in real time!
             </p>
           </div>
 
           <div className="space-y-3">
-            {liveMatches.map(({ announcement: ann, relevance }, idx) => (
+            {liveMatches.map(({ announcement: ann, relevance }) => (
               <div
                 key={ann.id}
                 onClick={() => onSelectAnnouncement(ann)}
-                className="p-3.5 rounded-2xl bg-white border border-[#E8E5DF] hover:border-[#C96B35]/40 transition-colors cursor-pointer shadow-2xs space-y-1.5"
+                className="p-3.5 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-400 transition-colors cursor-pointer shadow-2xs space-y-1.5"
               >
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[#787774] text-[11px]">{ann.category}</span>
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#FDF3EB] text-[#C96B35] font-mono">
+                  <span className="font-semibold text-slate-500 text-[11px]">{ann.category}</span>
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#D4F5EC] text-emerald-900 font-mono">
                     {relevance.score}% {relevance.tier}
                   </span>
                 </div>
-                <h4 className="text-xs font-bold text-[#292A28] line-clamp-1">{ann.title}</h4>
-                <div className="text-[11px] text-[#555] leading-relaxed">
-                  <span className="font-medium text-[#C96B35]">Why: </span>
+                <h4 className="text-xs font-bold text-slate-900 line-clamp-1">{ann.title}</h4>
+                <div className="text-[11px] text-slate-600 leading-relaxed">
+                  <span className="font-medium text-slate-800">Why: </span>
                   {relevance.reasons[0] || 'Matches your profile'}
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="p-3 rounded-xl bg-white border border-[#EAE6DF] text-[11px] text-[#787774] space-y-1">
-            <span className="font-bold text-[#292A28] block">Recommendation Weights:</span>
+          <div className="p-3.5 rounded-2xl bg-white border border-slate-200/70 text-[11px] text-slate-600 space-y-1 shadow-2xs">
+            <span className="font-bold text-slate-900 block mb-1">Algorithm Calibration:</span>
             <div>• Interests: 40% (direct category & keyword correlation)</div>
             <div>• Career Goals: 20% (industry & role alignment)</div>
             <div>• Department Match: 15% (direct targeting vs penalties)</div>

@@ -159,161 +159,164 @@ export default function App() {
   const getPageTitle = () => {
     switch (currentView) {
       case 'home':
-        return 'Campus Radar';
+        return 'Dashboard';
       case 'explore':
-        return 'Opportunity Catalog';
+        return 'Explore';
       case 'calendar':
-        return 'Campus Schedule & Deadlines';
+        return 'Campus Calendar';
       case 'opportunities':
         return 'My Pipeline';
       case 'add':
-        return 'AI Ingestion Studio';
+        return 'Smart Add';
       case 'briefing':
         return 'Weekly Briefing';
       case 'interests':
-        return 'Personalization Radar';
+        return 'My Interest';
       case 'settings':
-        return 'Settings & Demo Controls';
+        return 'Help & Settings';
       default:
-        return 'Campus Radar';
+        return 'Dashboard';
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F3] text-[#292A28] flex flex-row">
-      {/* Desktop Persistent Sidebar */}
-      <div className="hidden md:block">
-        <Sidebar
-          currentView={currentView}
-          onNavigate={handleNavigate}
-          activeProfile={profile}
-          onSelectProfile={handleProfileChange}
-          savedCount={Object.keys(opportunityStates).length}
-        />
-      </div>
-
-      {/* Mobile Sidebar Overlay Drawer */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden bg-black/40 backdrop-blur-xs flex">
-          <div className="w-72 bg-[#FAF8F3] h-full shadow-2xl">
-            <Sidebar
-              currentView={currentView}
-              onNavigate={(view) => {
-                handleNavigate(view);
-                setMobileMenuOpen(false);
-              }}
-              activeProfile={profile}
-              onSelectProfile={(p) => {
-                handleProfileChange(p);
-                setMobileMenuOpen(false);
-              }}
-              savedCount={Object.keys(opportunityStates).length}
-            />
-          </div>
-          <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
+    <div className="min-h-screen bg-[#ECEEF2] text-slate-800 p-3 md:p-6 flex items-start justify-center">
+      {/* Outer window shell mirroring dashboard frame */}
+      <div className="w-full max-w-[1580px] bg-[#FDFDFE] rounded-[36px] shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-slate-200/70 min-h-[920px]">
+        {/* Desktop Persistent Sidebar */}
+        <div className="hidden md:block">
+          <Sidebar
+            currentView={currentView}
+            onNavigate={handleNavigate}
+            activeProfile={profile}
+            onSelectProfile={handleProfileChange}
+            savedCount={Object.keys(opportunityStates).length}
+          />
         </div>
-      )}
 
-      {/* Main Viewport Container */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <TopNav
-          title={getPageTitle()}
-          searchQuery={searchQuery}
-          onSearchChange={(q) => {
-            setSearchQuery(q);
-            if (currentView !== 'explore') setCurrentView('explore');
-          }}
-          onOpenAdd={() => setCurrentView('add')}
-          onOpenNotifications={() => setIsNotificationsOpen(true)}
-          onOpenAssistant={() => setIsAssistantOpen(true)}
-          onMobileMenuToggle={() => setMobileMenuOpen(true)}
-          announcements={announcements}
-          profile={profile}
-          notifications={notifications}
-          onSelectAnnouncement={handleSelectAnnouncement}
-        />
+        {/* Mobile Sidebar Overlay Drawer */}
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-50 md:hidden bg-black/40 backdrop-blur-xs flex">
+            <div className="w-72 bg-[#FBFBFC] h-full shadow-2xl">
+              <Sidebar
+                currentView={currentView}
+                onNavigate={(view) => {
+                  handleNavigate(view);
+                  setMobileMenuOpen(false);
+                }}
+                activeProfile={profile}
+                onSelectProfile={(p) => {
+                  handleProfileChange(p);
+                  setMobileMenuOpen(false);
+                }}
+                savedCount={Object.keys(opportunityStates).length}
+              />
+            </div>
+            <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
+          </div>
+        )}
 
-        {/* Content Page View */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          {currentView === 'home' && (
-            <HomeDashboard
-              profile={profile}
-              announcements={announcements}
-              opportunityStates={opportunityStates}
-              onSelectAnnouncement={handleSelectAnnouncement}
-              onToggleSave={handleToggleSave}
-              onShare={(a) => setSharingAnnouncement(a)}
-              onNavigate={handleNavigate}
-            />
-          )}
+        {/* Main Viewport Container */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+          <TopNav
+            title={getPageTitle()}
+            searchQuery={searchQuery}
+            onSearchChange={(q) => {
+              setSearchQuery(q);
+              if (currentView !== 'explore') setCurrentView('explore');
+            }}
+            onOpenAdd={() => setCurrentView('add')}
+            onOpenNotifications={() => setIsNotificationsOpen(true)}
+            onOpenAssistant={() => setIsAssistantOpen(true)}
+            onMobileMenuToggle={() => setMobileMenuOpen(true)}
+            announcements={announcements}
+            profile={profile}
+            notifications={notifications}
+            onSelectAnnouncement={handleSelectAnnouncement}
+          />
 
-          {currentView === 'explore' && (
-            <ExplorePage
-              profile={profile}
-              announcements={announcements}
-              opportunityStates={opportunityStates}
-              onSelectAnnouncement={handleSelectAnnouncement}
-              onToggleSave={handleToggleSave}
-              onShare={(a) => setSharingAnnouncement(a)}
-              initialSearch={searchQuery}
-            />
-          )}
+          {/* Content Page View */}
+          <main className="flex-1 p-4 sm:p-6 lg:p-8">
+            {currentView === 'home' && (
+              <HomeDashboard
+                profile={profile}
+                announcements={announcements}
+                opportunityStates={opportunityStates}
+                onSelectAnnouncement={handleSelectAnnouncement}
+                onToggleSave={handleToggleSave}
+                onShare={(a) => setSharingAnnouncement(a)}
+                onNavigate={handleNavigate}
+              />
+            )}
 
-          {currentView === 'calendar' && (
-            <CalendarPage
-              profile={profile}
-              announcements={announcements}
-              opportunityStates={opportunityStates}
-              onSelectAnnouncement={handleSelectAnnouncement}
-              onToggleSave={handleToggleSave}
-            />
-          )}
+            {currentView === 'explore' && (
+              <ExplorePage
+                profile={profile}
+                announcements={announcements}
+                opportunityStates={opportunityStates}
+                onSelectAnnouncement={handleSelectAnnouncement}
+                onToggleSave={handleToggleSave}
+                onShare={(a) => setSharingAnnouncement(a)}
+                initialSearch={searchQuery}
+              />
+            )}
 
-          {currentView === 'opportunities' && (
-            <MyOpportunitiesPage
-              profile={profile}
-              announcements={announcements}
-              opportunityStates={opportunityStates}
-              onSelectAnnouncement={handleSelectAnnouncement}
-              onToggleSave={handleToggleSave}
-              onShare={(a) => setSharingAnnouncement(a)}
-              onNavigate={handleNavigate}
-            />
-          )}
+            {currentView === 'calendar' && (
+              <CalendarPage
+                profile={profile}
+                announcements={announcements}
+                opportunityStates={opportunityStates}
+                onSelectAnnouncement={handleSelectAnnouncement}
+                onToggleSave={handleToggleSave}
+              />
+            )}
 
-          {currentView === 'add' && (
-            <AddAnnouncement
-              existingAnnouncements={announcements}
-              onAnnouncementCreated={handleAnnouncementCreated}
-              onCancel={() => setCurrentView('home')}
-            />
-          )}
+            {currentView === 'opportunities' && (
+              <MyOpportunitiesPage
+                profile={profile}
+                announcements={announcements}
+                opportunityStates={opportunityStates}
+                onSelectAnnouncement={handleSelectAnnouncement}
+                onToggleSave={handleToggleSave}
+                onShare={(a) => setSharingAnnouncement(a)}
+                onNavigate={handleNavigate}
+              />
+            )}
 
-          {currentView === 'briefing' && (
-            <WeeklyBriefingPage
-              profile={profile}
-              announcements={announcements}
-              onSelectAnnouncement={handleSelectAnnouncement}
-            />
-          )}
+            {currentView === 'add' && (
+              <AddAnnouncement
+                existingAnnouncements={announcements}
+                onAnnouncementCreated={handleAnnouncementCreated}
+                onCancel={() => setCurrentView('home')}
+              />
+            )}
 
-          {currentView === 'interests' && (
-            <MyInterestsPage
-              profile={profile}
-              announcements={announcements}
-              onSaveProfile={handleProfileChange}
-              onSelectAnnouncement={handleSelectAnnouncement}
-            />
-          )}
+            {currentView === 'briefing' && (
+              <WeeklyBriefingPage
+                profile={profile}
+                announcements={announcements}
+                onSelectAnnouncement={handleSelectAnnouncement}
+              />
+            )}
 
-          {currentView === 'settings' && (
-            <SettingsPage
-              activeProfile={profile}
-              onSelectProfile={handleProfileChange}
-              onResetData={handleResetData}
-            />
-          )}
-        </main>
+            {currentView === 'interests' && (
+              <MyInterestsPage
+                profile={profile}
+                announcements={announcements}
+                onSaveProfile={handleProfileChange}
+                onSelectAnnouncement={handleSelectAnnouncement}
+              />
+            )}
+
+            {currentView === 'settings' && (
+              <SettingsPage
+                activeProfile={profile}
+                onSelectProfile={handleProfileChange}
+                onResetData={handleResetData}
+              />
+            )}
+          </main>
+        </div>
       </div>
 
       {/* Notice Detail Modal */}

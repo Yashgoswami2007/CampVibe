@@ -5,7 +5,6 @@ import {
   Clock,
   MapPin,
   ExternalLink,
-  Bookmark,
   Sparkles,
   CheckCircle2,
   AlertTriangle,
@@ -16,10 +15,9 @@ import {
   Trash2,
   Send,
   Download,
-  Heart,
 } from 'lucide-react';
 import { CampusAnnouncement, OpportunityFolder, StudentProfile } from '../types';
-import { calculateAnnouncementStatus, downloadICS, formatDate, getDateTile, getAnnouncementPriority } from '../lib/dates';
+import { calculateAnnouncementStatus, downloadICS, formatDate, getDateTile } from '../lib/dates';
 import { calculateRelevance } from '../lib/scoring';
 
 interface NoticeDetailModalProps {
@@ -61,27 +59,27 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-xs">
       <div
-        className="relative w-full max-w-3xl max-h-[92vh] bg-white rounded-3xl shadow-2xl border border-[#E4DFD5] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="relative w-full max-w-3xl max-h-[92vh] bg-white rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-[#EFECE6] bg-[#FAF8F3]">
+        <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-200/80 bg-[#F8F9FA]">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-[#C96B35] tracking-wide uppercase">
+            <span className="text-xs font-bold text-slate-800 tracking-wide uppercase">
               {announcement.category}
             </span>
-            <span aria-hidden="true" className="text-[#C4C0B6]">·</span>
-            <span className="text-xs text-[#787774] font-medium">{announcement.organizer}</span>
+            <span aria-hidden="true" className="text-slate-300">·</span>
+            <span className="text-xs text-slate-500 font-medium">{announcement.organizer}</span>
           </div>
 
           <div className="flex items-center gap-2">
             {/* Tab switch */}
-            <div className="flex items-center bg-[#EFECE6] p-1 rounded-xl text-xs font-medium">
+            <div className="flex items-center bg-slate-200/60 p-1 rounded-xl text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => setActiveTab('details')}
-                className={`px-3 py-1 rounded-lg transition-colors ${
-                  activeTab === 'details' ? 'bg-white text-[#292A28] shadow-xs' : 'text-[#787774] hover:text-[#292A28]'
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeTab === 'details' ? 'bg-[#181B20] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Intelligence
@@ -89,11 +87,11 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('source')}
-                className={`px-3 py-1 rounded-lg transition-colors ${
-                  activeTab === 'source' ? 'bg-white text-[#292A28] shadow-xs' : 'text-[#787774] hover:text-[#292A28]'
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeTab === 'source' ? 'bg-[#181B20] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Raw Source & Evidence
+                Raw Source
               </button>
             </div>
 
@@ -103,7 +101,7 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
                 type="button"
                 onClick={() => onShare(announcement)}
                 title="Share Announcement Card"
-                className="p-1.5 rounded-xl text-[#787774] hover:text-[#C96B35] hover:bg-[#FDF3EB] transition-colors"
+                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors"
               >
                 <Share2 className="w-4 h-4" />
               </button>
@@ -114,7 +112,7 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
                 type="button"
                 onClick={() => onEdit(announcement)}
                 title="Edit Announcement"
-                className="p-1.5 rounded-xl text-[#787774] hover:text-[#1F5FBF] hover:bg-[#E8F0FC] transition-colors"
+                className="p-1.5 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
               >
                 <Edit3 className="w-4 h-4" />
               </button>
@@ -130,7 +128,7 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
                   }
                 }}
                 title="Delete Announcement"
-                className="p-1.5 rounded-xl text-[#787774] hover:text-[#B42318] hover:bg-[#FDECEA] transition-colors"
+                className="p-1.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -139,7 +137,7 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-xl text-[#787774] hover:text-[#292A28] hover:bg-[#EFECE6] transition-colors"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -151,45 +149,45 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
           {activeTab === 'details' ? (
             <>
               {/* Top Banner Card: Date Tile + Title */}
-              <div className="flex items-start gap-4 p-5 rounded-2xl bg-[#FAF8F3] border border-[#EAE6DF]">
-                <div className="w-16 h-16 rounded-2xl bg-white border border-[#E0DBD0] flex flex-col items-center justify-center shrink-0 shadow-xs">
-                  <span className="text-[11px] font-bold text-[#C96B35] tracking-wider leading-none">
+              <div className="flex items-start gap-4 p-5 rounded-2xl bg-[#F8F9FA] border border-slate-200/80">
+                <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200/80 flex flex-col items-center justify-center shrink-0 shadow-2xs">
+                  <span className="text-[11px] font-bold text-slate-600 tracking-wider leading-none uppercase">
                     {dateTile.month}
                   </span>
-                  <span className="text-2xl font-black text-[#292A28] leading-tight font-mono tabular-nums">
+                  <span className="text-2xl font-black text-slate-900 leading-tight font-mono tabular-nums">
                     {dateTile.day}
                   </span>
-                  <span className="text-[10px] text-[#787774] font-semibold leading-none">
+                  <span className="text-[10px] text-slate-400 font-semibold leading-none">
                     {dateTile.weekday}
                   </span>
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-md border border-[#F9D2CE] bg-[#FDECEA] text-[#B42318]">
+                    <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-md border border-rose-200 bg-rose-50 text-rose-700">
                       {status.countdownText}
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-md border border-[#F8DCBA] bg-[#FDF3EB] text-[#C96B35]">
-                      <Sparkles className="w-3.5 h-3.5" />
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-800 font-mono">
+                      <Sparkles className="w-3.5 h-3.5 text-slate-700" />
                       {relevance.score}% {relevance.tier}
                     </span>
                   </div>
-                  <h2 className="text-xl font-bold text-[#292A28] leading-snug">
+                  <h2 className="text-xl font-bold text-slate-900 leading-snug">
                     {announcement.title}
                   </h2>
                 </div>
               </div>
 
               {/* Relevance Insight Box */}
-              <div className="p-4 rounded-2xl bg-[#FFFDF9] border border-[#E7B96C]/40">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#C96B35] mb-2">
-                  <Sparkles className="w-4 h-4" />
+              <div className="p-4 rounded-2xl bg-[#EBF1FD]/50 border border-blue-200/70">
+                <div className="flex items-center gap-2 text-xs font-bold text-blue-900 mb-2">
+                  <Sparkles className="w-4 h-4 text-blue-700" />
                   <span>Why This Matches You ({profile.name} · {profile.department})</span>
                 </div>
                 <div className="space-y-1.5">
                   {relevance.reasons.map((reason, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-[#4D4B47]">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#C96B35] shrink-0 mt-0.5" />
+                    <div key={idx} className="flex items-start gap-2 text-xs text-blue-950">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
                       <span>{reason}</span>
                     </div>
                   ))}
@@ -199,38 +197,38 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
               {/* Key Details Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
                 {/* Event Schedule */}
-                <div className="p-3.5 rounded-xl border border-[#EFECE6] bg-white">
-                  <span className="text-[#8C8880] font-medium block mb-1">Event Date & Time</span>
-                  <div className="flex items-center gap-1.5 font-semibold text-[#292A28]">
-                    <Calendar className="w-4 h-4 text-[#C96B35]" />
+                <div className="p-3.5 rounded-xl border border-slate-200/70 bg-[#F8F9FA]">
+                  <span className="text-slate-400 font-medium block mb-1">Event Date & Time</span>
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                    <Calendar className="w-4 h-4 text-slate-700" />
                     <span>{announcement.event_date ? formatDate(announcement.event_date, true) : 'TBD'}</span>
-                    {announcement.event_time && <span className="font-mono text-[#787774]">({announcement.event_time})</span>}
+                    {announcement.event_time && <span className="font-mono text-slate-500">({announcement.event_time})</span>}
                   </div>
                 </div>
 
                 {/* Registration Deadline */}
-                <div className="p-3.5 rounded-xl border border-[#EFECE6] bg-white">
-                  <span className="text-[#8C8880] font-medium block mb-1">Registration Deadline</span>
-                  <div className="flex items-center gap-1.5 font-semibold text-[#292A28]">
-                    <Clock className="w-4 h-4 text-[#C96B35]" />
+                <div className="p-3.5 rounded-xl border border-slate-200/70 bg-[#F8F9FA]">
+                  <span className="text-slate-400 font-medium block mb-1">Registration Deadline</span>
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                    <Clock className="w-4 h-4 text-slate-700" />
                     <span>{announcement.registration_deadline ? formatDate(announcement.registration_deadline, true) : 'No strict deadline / On spot'}</span>
                   </div>
                 </div>
 
                 {/* Venue */}
-                <div className="p-3.5 rounded-xl border border-[#EFECE6] bg-white">
-                  <span className="text-[#8C8880] font-medium block mb-1">Venue / Location</span>
-                  <div className="flex items-center gap-1.5 font-semibold text-[#292A28]">
-                    <MapPin className="w-4 h-4 text-[#C96B35]" />
+                <div className="p-3.5 rounded-xl border border-slate-200/70 bg-[#F8F9FA]">
+                  <span className="text-slate-400 font-medium block mb-1">Venue / Location</span>
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                    <MapPin className="w-4 h-4 text-slate-700" />
                     <span>{announcement.venue || 'Campus (Hall to be announced)'}</span>
                   </div>
                 </div>
 
                 {/* Eligibility */}
-                <div className="p-3.5 rounded-xl border border-[#EFECE6] bg-white">
-                  <span className="text-[#8C8880] font-medium block mb-1">Eligibility</span>
-                  <div className="flex items-center gap-1.5 font-semibold text-[#292A28]">
-                    <UserCheck className="w-4 h-4 text-[#C96B35]" />
+                <div className="p-3.5 rounded-xl border border-slate-200/70 bg-[#F8F9FA]">
+                  <span className="text-slate-400 font-medium block mb-1">Eligibility</span>
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                    <UserCheck className="w-4 h-4 text-slate-700" />
                     <span className="truncate">{announcement.eligibility || 'Open to all students'}</span>
                   </div>
                 </div>
@@ -238,23 +236,23 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
 
               {/* Description */}
               <div>
-                <h4 className="text-xs font-bold text-[#8C8880] uppercase tracking-wider mb-2">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                   Detailed Overview
                 </h4>
-                <p className="text-sm text-[#4D4B47] leading-relaxed whitespace-pre-line bg-[#FAF8F3] p-4 rounded-2xl border border-[#EFECE6]">
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line bg-[#F8F9FA] p-4 rounded-2xl border border-slate-200/70">
                   {announcement.description}
                 </p>
               </div>
 
               {/* Action Required Callout */}
               {announcement.required_action && (
-                <div className="p-4 rounded-2xl bg-[#FAF8F3] border border-[#E8E5DF] flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-[#C96B35]/10 text-[#C96B35] flex items-center justify-center shrink-0">
+                <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-slate-200/80 flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-slate-200 text-slate-800 flex items-center justify-center shrink-0">
                     <Send className="w-4 h-4" />
                   </div>
                   <div>
-                    <h5 className="text-xs font-bold text-[#292A28]">Action Required</h5>
-                    <p className="text-xs text-[#5C5A56] mt-0.5 leading-relaxed">
+                    <h5 className="text-xs font-bold text-slate-900">Action Required</h5>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                       {announcement.required_action}
                     </p>
                   </div>
@@ -263,16 +261,16 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
 
               {/* Missing Fields or Ambiguity Warnings */}
               {(announcement.missing_fields?.length > 0 || announcement.warnings?.length > 0) && (
-                <div className="p-3.5 rounded-xl bg-[#FFFDF9] border border-[#EAE6DF] space-y-1.5 text-xs text-[#787774]">
+                <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1.5 text-xs text-amber-900">
                   {announcement.warnings?.map((warn, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[#9A6208]">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <div key={i} className="flex items-center gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
                       <span>{warn}</span>
                     </div>
                   ))}
                   {announcement.missing_fields?.length > 0 && (
-                    <div className="text-[11px] text-[#8C8880]">
-                      <span className="font-medium text-[#5C5A56]">Not mentioned in source: </span>
+                    <div className="text-[11px] text-amber-800">
+                      <span className="font-semibold">Not mentioned in notice: </span>
                       {announcement.missing_fields.join(', ')}
                     </div>
                   )}
@@ -282,48 +280,48 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
           ) : (
             /* Source Text & Extraction Evidence View */
             <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-[#FAF8F3] border border-[#EAE6DF]">
+              <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-slate-200/80">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-[#292A28] flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-[#C96B35]" />
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-slate-700" />
                     Original Communication Text (Stored Verbatim)
                   </h4>
-                  <span className="text-[11px] text-[#787774] font-medium uppercase">
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase">
                     Source: {announcement.source}
                   </span>
                 </div>
-                <div className="p-3 bg-white rounded-xl border border-[#E0DBD0] font-mono text-xs text-[#333] whitespace-pre-wrap leading-relaxed select-text">
+                <div className="p-3 bg-white rounded-xl border border-slate-200 font-mono text-xs text-slate-800 whitespace-pre-wrap leading-relaxed select-text">
                   {announcement.raw_text}
                 </div>
               </div>
 
               {/* Verifiable Evidence Quotes */}
               <div>
-                <h4 className="text-xs font-bold text-[#8C8880] uppercase tracking-wider mb-2">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                   Verified Quotes (Evidence Backing)
                 </h4>
                 {Object.keys(announcement.evidence || {}).length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     {Object.entries(announcement.evidence).map(([field, quote]) => (
-                      <div key={field} className="p-3 rounded-xl bg-white border border-[#EFECE6]">
-                        <span className="text-[11px] font-semibold text-[#C96B35] uppercase block mb-1">
+                      <div key={field} className="p-3 rounded-xl bg-white border border-slate-200">
+                        <span className="text-[11px] font-semibold text-slate-700 uppercase block mb-1">
                           {field.replace(/_/g, ' ')}
                         </span>
-                        <p className="text-[#333] italic">"{quote}"</p>
+                        <p className="text-slate-800 italic">"{quote}"</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-[#787774]">No specific evidence quotes recorded.</p>
+                  <p className="text-xs text-slate-400">No specific evidence quotes recorded.</p>
                 )}
               </div>
 
               {/* Date Resolution Details */}
               {announcement.date_resolution && (
-                <div className="p-3.5 rounded-xl bg-[#FAF8F3] border border-[#EFECE6] text-xs">
-                  <h5 className="font-bold text-[#292A28] mb-1">Date Resolution Intelligence</h5>
-                  <p className="text-[#5C5A56]">
-                    Phrase <span className="font-semibold text-[#292A28]">"{announcement.date_resolution.phrase}"</span> resolved via {announcement.date_resolution.method} computation ({announcement.date_resolution.assumption}).
+                <div className="p-3.5 rounded-xl bg-[#F8F9FA] border border-slate-200 text-xs">
+                  <h5 className="font-bold text-slate-900 mb-1">Date Resolution Intelligence</h5>
+                  <p className="text-slate-600">
+                    Phrase <span className="font-semibold text-slate-900">"{announcement.date_resolution.phrase}"</span> resolved via {announcement.date_resolution.method} computation ({announcement.date_resolution.assumption}).
                   </p>
                 </div>
               )}
@@ -332,19 +330,19 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
         </div>
 
         {/* Modal Action Footer */}
-        <div className="px-6 py-4 border-t border-[#EFECE6] bg-[#FAF8F3] flex flex-wrap items-center justify-between gap-3">
+        <div className="px-6 py-4 border-t border-slate-200/80 bg-[#F8F9FA] flex flex-wrap items-center justify-between gap-3">
           {/* Opportunity Folder Selector */}
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-[#787774] font-medium mr-1 hidden sm:inline">Track:</span>
+            <span className="text-xs text-slate-400 font-medium mr-1 hidden sm:inline">Track:</span>
             {folderOptions.map((opt) => (
               <button
                 key={opt.id}
                 type="button"
                 onClick={() => onUpdateFolder(announcement.id, currentFolder === opt.id ? null : opt.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                   currentFolder === opt.id
-                    ? 'bg-[#C96B35] text-white border-[#C96B35]'
-                    : 'bg-white text-[#787774] border-[#E0DBD0] hover:border-[#C96B35]/40 hover:text-[#292A28]'
+                    ? 'bg-[#181B20] text-white border-[#181B20] shadow-2xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400 hover:text-slate-900'
                 }`}
               >
                 {opt.label}
@@ -357,9 +355,9 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
             <button
               type="button"
               onClick={() => downloadICS(announcement)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white border border-[#E0DBD0] text-[#292A28] hover:bg-[#FAF8F3] transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
             >
-              <Download className="w-3.5 h-3.5 text-[#787774]" />
+              <Download className="w-3.5 h-3.5 text-slate-500" />
               <span>Add to Calendar</span>
             </button>
 
@@ -368,7 +366,7 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
                 href={announcement.registration_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold bg-[#C96B35] text-white hover:bg-[#B85E2B] transition-colors shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold bg-[#181B20] text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
               >
                 <span>Register Now</span>
                 <ExternalLink className="w-3.5 h-3.5" />

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, Send, Bot, User, ArrowRight, Calendar, Clock, MapPin, ExternalLink, RefreshCw } from 'lucide-react';
+import { X, Sparkles, Send, Bot, Calendar, MapPin, ArrowRight } from 'lucide-react';
 import { AssistantMessage, CampusAnnouncement, StudentProfile } from '../types';
 import { formatDate } from '../lib/dates';
 
@@ -30,7 +30,7 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
     {
       id: 'msg-welcome',
       sender: 'assistant',
-      text: `Hello ${profile.name.split(' ')[0]}! I'm your AI Campus Assistant. Ask me anything about upcoming campus events, urgent registration cutoffs, hackathons, or opportunities matching your ${profile.department} roadmap.`,
+      text: `Hello ${profile.name.split(' ')[0]}! I'm your MiT Campus AI Assistant. Ask me anything about upcoming campus events, urgent registration cutoffs, hackathons, or opportunities matching your ${profile.department} roadmap.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -107,25 +107,25 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/40 backdrop-blur-xs">
       <div
-        className="w-full max-w-2xl h-[88vh] bg-white rounded-3xl shadow-2xl border border-[#E0DBD0] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-2xl h-[88vh] bg-white rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F2EFE9] bg-[#FAF8F3]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 bg-[#F8F9FA]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#C96B35] text-white flex items-center justify-center shadow-xs">
-              <Bot className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-[#181B20] text-white flex items-center justify-center shadow-2xs">
+              <Bot className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[#292A28]">
-                  AI Campus Assistant
+                <h3 className="text-sm font-bold text-slate-900">
+                  MiT Campus AI Assistant
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FDF3EB] text-[#C96B35] border border-[#F8DCBA]">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#EBF1FD] text-blue-700 border border-blue-200/60">
                   Gemini 3.8 Flash
                 </span>
               </div>
-              <p className="text-[11px] text-[#787774]">
+              <p className="text-[11px] text-slate-500">
                 Grounded in {announcements.length} campus announcements
               </p>
             </div>
@@ -134,14 +134,14 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-[#787774] hover:text-[#292A28] hover:bg-[#EFECE6] transition-colors"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Chat Thread */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-[#FCFBF8]">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-[#F8F9FA]/50">
           {messages.map((msg) => {
             const isUser = msg.sender === 'user';
             const relatedItems = (msg.related_announcement_ids || [])
@@ -154,8 +154,8 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
                 className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isUser && (
-                  <div className="w-8 h-8 rounded-xl bg-[#FDF3EB] border border-[#F8DCBA] text-[#C96B35] flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles className="w-4 h-4" />
+                  <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-800 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
                   </div>
                 )}
 
@@ -163,14 +163,14 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
                   <div
                     className={`p-4 rounded-2xl text-xs leading-relaxed shadow-2xs ${
                       isUser
-                        ? 'bg-[#292A28] text-white rounded-tr-xs'
-                        : 'bg-white border border-[#EAE6DF] text-[#292A28] rounded-tl-xs'
+                        ? 'bg-[#181B20] text-white rounded-tr-xs'
+                        : 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-xs'
                     }`}
                   >
                     <p className="whitespace-pre-line">{msg.text}</p>
                     <span
                       className={`block text-[10px] mt-1.5 font-mono ${
-                        isUser ? 'text-white/60 text-right' : 'text-[#8C8880]'
+                        isUser ? 'text-slate-400 text-right' : 'text-slate-400'
                       }`}
                     >
                       {msg.timestamp}
@@ -180,7 +180,7 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
                   {/* Render referenced announcement cards if any */}
                   {relatedItems.length > 0 && (
                     <div className="space-y-2 pl-1">
-                      <div className="text-[11px] font-bold text-[#8C8880] uppercase tracking-wider">
+                      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                         Referenced Campus Notices:
                       </div>
                       <div className="grid grid-cols-1 gap-2">
@@ -190,31 +190,31 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
                             onClick={() => {
                               onSelectAnnouncement(item);
                             }}
-                            className="p-3 bg-white rounded-xl border border-[#E0DBD0] hover:border-[#C96B35] cursor-pointer transition-all shadow-2xs flex items-center justify-between gap-3 group"
+                            className="p-3 bg-white rounded-xl border border-slate-200/80 hover:border-slate-400 cursor-pointer transition-all shadow-2xs flex items-center justify-between gap-3 group"
                           >
                             <div className="min-w-0">
-                              <div className="text-[10px] font-semibold text-[#C96B35] uppercase">
+                              <div className="text-[10px] font-semibold text-slate-500 uppercase">
                                 {item.category}
                               </div>
-                              <h5 className="text-xs font-bold text-[#292A28] truncate group-hover:text-[#C96B35] transition-colors">
+                              <h5 className="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
                                 {item.title}
                               </h5>
-                              <div className="flex items-center gap-3 text-[10px] text-[#787774] mt-0.5">
+                              <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-0.5">
                                 {item.event_date && (
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
+                                  <span className="flex items-center gap-1 font-mono">
+                                    <Calendar className="w-3 h-3 text-slate-400" />
                                     {formatDate(item.event_date)}
                                   </span>
                                 )}
                                 {item.venue && (
                                   <span className="flex items-center gap-1 truncate max-w-[140px]">
-                                    <MapPin className="w-3 h-3" />
+                                    <MapPin className="w-3 h-3 text-slate-400" />
                                     {item.venue}
                                   </span>
                                 )}
                               </div>
                             </div>
-                            <span className="text-xs font-semibold text-[#C96B35] shrink-0 flex items-center gap-1">
+                            <span className="text-xs font-semibold text-slate-800 shrink-0 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
                               View <ArrowRight className="w-3.5 h-3.5" />
                             </span>
                           </div>
@@ -225,7 +225,7 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
                 </div>
 
                 {isUser && (
-                  <div className="w-8 h-8 rounded-xl bg-[#292A28] text-white flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">
+                  <div className="w-8 h-8 rounded-xl bg-[#181B20] text-white flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold shadow-2xs">
                     {profile.name.charAt(0)}
                   </div>
                 )}
@@ -235,12 +235,12 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
 
           {isTyping && (
             <div className="flex gap-3 justify-start items-center">
-              <div className="w-8 h-8 rounded-xl bg-[#FDF3EB] text-[#C96B35] flex items-center justify-center shrink-0 animate-pulse">
-                <Sparkles className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 animate-pulse shadow-2xs">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
               </div>
-              <div className="p-3 rounded-2xl bg-white border border-[#EAE6DF] text-xs text-[#787774] flex items-center gap-2">
-                <div className="w-3.5 h-3.5 border-2 border-[#C96B35]/30 border-t-[#C96B35] rounded-full animate-spin" />
-                <span>Checking campus database...</span>
+              <div className="p-3 rounded-2xl bg-white border border-slate-200 text-xs text-slate-500 flex items-center gap-2 shadow-2xs">
+                <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-800 rounded-full animate-spin" />
+                <span>Checking MiT campus database...</span>
               </div>
             </div>
           )}
@@ -249,8 +249,8 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
         </div>
 
         {/* Suggested Question Chips */}
-        <div className="px-4 py-2 border-t border-[#F2EFE9] bg-white overflow-x-auto flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] font-bold text-[#8C8880] uppercase tracking-wider shrink-0 mr-1">
+        <div className="px-4 py-2 border-t border-slate-200/80 bg-white overflow-x-auto flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
             Try:
           </span>
           {SUGGESTED_QUESTIONS.map((q, idx) => (
@@ -258,7 +258,7 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
               key={idx}
               type="button"
               onClick={() => handleSend(q)}
-              className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-[#FAF8F3] hover:bg-[#FDF3EB] text-[#555] hover:text-[#C96B35] border border-[#E8E5DF] transition-colors whitespace-nowrap shrink-0"
+              className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-[#F8F9FA] hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200/70 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               {q}
             </button>
@@ -266,7 +266,7 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
         </div>
 
         {/* Input Bar */}
-        <div className="p-3 sm:p-4 border-t border-[#F2EFE9] bg-white">
+        <div className="p-3 sm:p-4 border-t border-slate-200/80 bg-white">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -279,12 +279,12 @@ export const AiCampusAssistant: React.FC<AiCampusAssistantProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Ask about events, eligibility, deadlines, venues, or links..."
-              className="flex-1 px-4 py-2.5 rounded-xl bg-[#FAF8F3] border border-[#E0DBD0] text-xs text-[#292A28] placeholder-[#9B9890] focus:outline-none focus:border-[#C96B35] transition-colors"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-[#F8F9FA] border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 transition-colors"
             />
             <button
               type="submit"
               disabled={isTyping || !inputText.trim()}
-              className="px-4 py-2.5 rounded-xl bg-[#C96B35] text-white hover:bg-[#B85E2B] disabled:opacity-40 transition-colors shadow-2xs font-bold text-xs flex items-center gap-1.5 shrink-0"
+              className="px-4 py-2.5 rounded-xl bg-[#181B20] text-white hover:bg-slate-800 disabled:opacity-40 transition-colors shadow-2xs font-semibold text-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
             >
               <span>Send</span>
               <Send className="w-3.5 h-3.5" />

@@ -4,7 +4,7 @@ export const DEMO_PROFILES: StudentProfile[] = [
   {
     id: 'demo-profile-1',
     name: 'Yash Goswami',
-    college: 'Institute of Engineering & Technology',
+    college: 'Moradabad Institute of Technology (MiT)',
     department: 'Computer Science',
     academic_year: '3rd Year',
     interests: ['Artificial Intelligence', 'Machine Learning', 'Hackathons', 'Web Development', 'Technology'],
@@ -15,7 +15,7 @@ export const DEMO_PROFILES: StudentProfile[] = [
   {
     id: 'demo-profile-2',
     name: 'Ananya Sharma',
-    college: 'Institute of Engineering & Technology',
+    college: 'Moradabad Institute of Technology (MiT)',
     department: 'Electronics & Communication',
     academic_year: '4th Year',
     interests: ['Placements', 'Internships', 'Workshops', 'Academics'],
@@ -26,7 +26,7 @@ export const DEMO_PROFILES: StudentProfile[] = [
   {
     id: 'demo-profile-3',
     name: 'Rohan Verma',
-    college: 'Institute of Engineering & Technology',
+    college: 'Moradabad Institute of Technology (MiT)',
     department: 'Mechanical Engineering',
     academic_year: '2nd Year',
     interests: ['Sports', 'Cultural Activities', 'Entrepreneurship', 'Technology'],

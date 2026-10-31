@@ -4,29 +4,63 @@
   :root {
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+    /* New Design System Tokens */
+    --color-bg-app: #ECEEF2;
+    --color-bg-shell: #FDFDFE;
+    --color-sidebar-bg: #FBFBFC;
+    --color-main-bg: #FFFFFF;
+    --color-dark-pill: #181B20;
+    --color-card-dark: #121620;
+    --color-accent-mint: #D4F5EC;
+    --color-accent-cream: #FBF5E5;
+    --color-accent-slate: #F4F5F8;
+    --color-accent-blue-soft: #EBF1FD;
+    --color-accent-primary: #3B82F6;
+    --color-accent-teal: #10B981;
+    --color-text-primary: #0F172A;
+    --color-text-secondary: #64748B;
+    --color-text-muted: #94A3B8;
+    --color-border-light: #E2E8F0;
+    --color-border-medium: #CBD5E1;
   }
 
   body {
     font-family: var(--font-sans);
-    background-color: #FAF8F3;
-    color: #292A28;
+    background-color: var(--color-bg-app);
+    color: var(--color-text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Custom scrollbars for high-density cards and original text panels */
+/* Custom scrollbars for premium feel */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #E4DFD5;
+  background: #E2E8F0;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #CBC5B8;
+  background: #CBD5E1;
+}
+
+/* Smooth transitions for all interactive elements */
+* {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Override transition for elements that animate transform */
+[class*="animate-"] {
+  transition-property: none;
+}
+
+.donut-chart {
+  background: conic-gradient(#FFFFFF 0% 36%, #282E3E 36% 100%);
 }

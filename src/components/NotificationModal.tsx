@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Bell, Clock, Calendar, Sparkles, Check, Trash2, CheckCheck, AlertCircle } from 'lucide-react';
+import { X, Bell, Clock, Calendar, Sparkles, Trash2, CheckCheck } from 'lucide-react';
 import { CampusAnnouncement, CampusNotification } from '../types';
 
 interface NotificationModalProps {
@@ -38,33 +38,33 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   const getIcon = (type: CampusNotification['type']) => {
     switch (type) {
       case 'deadline':
-        return <Clock className="w-4 h-4 text-[#B42318]" />;
+        return <Clock className="w-4 h-4 text-rose-600" />;
       case 'event':
-        return <Calendar className="w-4 h-4 text-[#1F5FBF]" />;
+        return <Calendar className="w-4 h-4 text-blue-600" />;
       case 'recommendation':
-        return <Sparkles className="w-4 h-4 text-[#C96B35]" />;
+        return <Sparkles className="w-4 h-4 text-emerald-600" />;
       default:
-        return <Bell className="w-4 h-4 text-[#2D6A4F]" />;
+        return <Bell className="w-4 h-4 text-slate-700" />;
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
       <div
-        className="w-full max-w-xl max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-[#E0DBD0] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-xl max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-[#F2EFE9] bg-[#FAF8F3]">
+        <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-200/80 bg-[#F8F9FA]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#FDF3EB] text-[#C96B35] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#181B20] text-white flex items-center justify-center shadow-2xs">
               <Bell className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#292A28]">
+              <h3 className="text-sm font-bold text-slate-900">
                 Notification Centre
               </h3>
-              <span className="text-[11px] text-[#787774]">
+              <span className="text-[11px] text-slate-500">
                 {unreadCount > 0 ? `${unreadCount} unread alert${unreadCount > 1 ? 's' : ''}` : 'All caught up'}
               </span>
             </div>
@@ -75,7 +75,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
               <button
                 type="button"
                 onClick={onMarkAllRead}
-                className="text-[11px] font-bold text-[#C96B35] hover:text-[#B85E2B] px-2 py-1 rounded-lg hover:bg-[#FDF3EB] flex items-center gap-1 transition-colors"
+                className="text-[11px] font-semibold text-slate-700 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-200/60 flex items-center gap-1 transition-colors cursor-pointer"
                 title="Mark all notifications as read"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
@@ -87,7 +87,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
               <button
                 type="button"
                 onClick={onClearAll}
-                className="text-[11px] font-semibold text-[#8C8880] hover:text-[#B42318] px-2 py-1 rounded-lg hover:bg-[#FDECEA] flex items-center gap-1 transition-colors"
+                className="text-[11px] font-semibold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 flex items-center gap-1 transition-colors cursor-pointer"
                 title="Clear all notifications"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -98,7 +98,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-xl text-[#787774] hover:text-[#292A28] hover:bg-[#EFECE6] transition-colors ml-1"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 transition-colors ml-1 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -106,7 +106,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         </div>
 
         {/* Tab Filters */}
-        <div className="flex items-center gap-1.5 px-6 py-2.5 border-b border-[#F2EFE9] bg-white text-xs overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-6 py-2.5 border-b border-slate-200/70 bg-white text-xs overflow-x-auto">
           {[
             { id: 'all', label: 'All Alerts' },
             { id: 'unread', label: `Unread (${unreadCount})` },
@@ -117,10 +117,10 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
               key={tab.id}
               type="button"
               onClick={() => setFilter(tab.id as any)}
-              className={`px-3 py-1.5 rounded-xl font-semibold transition-colors whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 filter === tab.id
-                  ? 'bg-[#292A28] text-white shadow-2xs'
-                  : 'bg-[#FAF8F3] text-[#787774] hover:text-[#292A28]'
+                  ? 'bg-[#181B20] text-white shadow-2xs'
+                  : 'bg-[#F8F9FA] text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               {tab.label}
@@ -129,7 +129,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         </div>
 
         {/* Notification List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-[#F8F9FA]/40">
           {filteredNotifs.length > 0 ? (
             filteredNotifs.map((notif) => {
               const ann = notif.announcement_id ? announcementMap.get(notif.announcement_id) : null;
@@ -146,29 +146,29 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                   }}
                   className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 ${
                     notif.read
-                      ? 'bg-white border-[#EFECE6] hover:border-[#E0DBD0]'
-                      : 'bg-[#FAF8F3] border-[#F8DCBA] hover:border-[#C96B35]/50 shadow-2xs'
+                      ? 'bg-white border-slate-200/70 hover:border-slate-300'
+                      : 'bg-white border-slate-300 ring-1 ring-slate-800/10 hover:border-slate-400 shadow-2xs'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-xl bg-white border border-[#EAE6DF] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                  <div className="w-8 h-8 rounded-xl bg-[#F8F9FA] border border-slate-200 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                     {getIcon(notif.type)}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <h4 className={`text-xs font-bold truncate ${notif.read ? 'text-[#292A28]' : 'text-[#C96B35]'}`}>
+                      <h4 className={`text-xs font-bold truncate ${notif.read ? 'text-slate-800' : 'text-slate-900'}`}>
                         {notif.title}
                       </h4>
                       {!notif.read && (
-                        <span className="w-2 h-2 rounded-full bg-[#C96B35] shrink-0" />
+                        <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
                       )}
                     </div>
-                    <p className="text-xs text-[#555] leading-relaxed line-clamp-2">
+                    <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
                       {notif.message}
                     </p>
                     {ann && (
-                      <div className="mt-2 text-[10px] text-[#787774] flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded bg-white border border-[#E0DBD0] font-medium text-[#292A28]">
+                      <div className="mt-2 text-[10px] text-slate-500 flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded-md bg-[#F8F9FA] border border-slate-200 font-medium text-slate-700">
                           {ann.category}
                         </span>
                         <span>Click to view details & act</span>
@@ -180,11 +180,11 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             })
           ) : (
             <div className="p-10 text-center space-y-2">
-              <div className="w-10 h-10 rounded-2xl bg-[#FAF8F3] border border-[#EAE6DF] text-[#787774] flex items-center justify-center mx-auto">
+              <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200 text-slate-400 flex items-center justify-center mx-auto shadow-2xs">
                 <Bell className="w-5 h-5" />
               </div>
-              <p className="text-xs font-bold text-[#292A28]">No notifications</p>
-              <p className="text-[11px] text-[#787774]">
+              <p className="text-xs font-bold text-slate-800">No notifications</p>
+              <p className="text-[11px] text-slate-500">
                 You're completely updated with all upcoming opportunities and reminders.
               </p>
             </div>

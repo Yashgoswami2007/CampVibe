@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Radio, Sparkles, ArrowRight, Check, User, GraduationCap, FastForward } from 'lucide-react';
+import { Sparkles, ArrowRight, Check, FastForward, GraduationCap } from 'lucide-react';
 import { StudentProfile } from '../types';
-import { DEMO_PROFILES } from '../lib/seedData';
 
 interface OnboardingModalProps {
   onComplete: (profile: StudentProfile) => void;
@@ -33,11 +32,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState('');
-  const [college, setCollege] = useState('Institute of Engineering & Technology');
+  const [college] = useState('Moradabad Institute of Technology');
   const [department, setDepartment] = useState('Computer Science');
   const [year, setYear] = useState('3rd Year');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([
-    'Artificial Intelligence',
+    'Artificial Intelligence / ML',
     'Hackathons',
     'Web Development',
   ]);
@@ -54,7 +53,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     const newProfile: StudentProfile = {
       id: `profile-${Date.now()}`,
       name: name.trim() || 'Student',
-      college: college.trim() || 'University Campus',
+      college: college.trim() || 'Moradabad Institute of Technology',
       department,
       academic_year: year,
       interests: selectedInterests,
@@ -67,31 +66,31 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#E0DBD0] space-y-6 animate-in zoom-in-95 duration-150">
+      <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200/80 space-y-6 animate-in zoom-in-95 duration-150">
         {/* Brand Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#C96B35] flex items-center justify-center text-white shadow-xs">
-              <Radio className="w-5 h-5 animate-pulse" />
+            <div className="w-10 h-10 rounded-2xl bg-[#181B20] flex items-center justify-center text-white shadow-2xs">
+              <GraduationCap className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-[#292A28] leading-tight">
-                Welcome to Campus Radar
+              <h2 className="text-lg font-extrabold text-slate-900 leading-tight">
+                Welcome to MiT Portal
               </h2>
-              <span className="text-xs text-[#787774]">
-                Don't Miss What Matters.
+              <span className="text-xs text-slate-500">
+                Moradabad Institute of Technology
               </span>
             </div>
           </div>
 
-          {/* Quick Demo Bypass for Judges */}
+          {/* Quick Demo Bypass */}
           <button
             type="button"
             onClick={onQuickDemo}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FDF3EB] text-[#C96B35] border border-[#F8DCBA] hover:bg-[#FBE8DA] transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#F8F9FA] text-slate-800 border border-slate-200/80 hover:bg-slate-100 transition-colors shadow-2xs cursor-pointer"
           >
             <FastForward className="w-3.5 h-3.5" />
-            <span>Judge Demo Mode</span>
+            <span>Judge Demo</span>
           </button>
         </div>
 
@@ -99,17 +98,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           /* Step 1: Academic Identity */
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-[#292A28]">
+              <h3 className="text-sm font-bold text-slate-900">
                 1. Your Academic Profile
               </h3>
-              <p className="text-xs text-[#787774]">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Opportunities will be filtered and prioritized based on your department and batch year.
               </p>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-[11px] font-bold text-[#8C8880] uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                   Your Name
                 </label>
                 <input
@@ -117,18 +116,18 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Yash Goswami"
-                  className="w-full p-2.5 rounded-xl border border-[#E0DBD0] text-xs text-[#292A28] focus:border-[#C96B35] focus:outline-none"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:border-slate-800 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-[#8C8880] uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                   Department
                 </label>
                 <select
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-[#E0DBD0] text-xs text-[#292A28] focus:border-[#C96B35] focus:outline-none bg-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:border-slate-800 focus:outline-none bg-white cursor-pointer"
                 >
                   <option value="Computer Science">Computer Science & Engineering</option>
                   <option value="Information Technology">Information Technology</option>
@@ -139,13 +138,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-[#8C8880] uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                   Academic Year
                 </label>
                 <select
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-[#E0DBD0] text-xs text-[#292A28] focus:border-[#C96B35] focus:outline-none bg-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:border-slate-800 focus:outline-none bg-white cursor-pointer"
                 >
                   <option value="1st Year">1st Year (Freshman)</option>
                   <option value="2nd Year">2nd Year (Sophomore)</option>
@@ -158,7 +157,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="w-full py-3 rounded-xl text-xs font-bold bg-[#C96B35] text-white hover:bg-[#B85E2B] transition-colors flex items-center justify-center gap-2 mt-4"
+              className="w-full py-3 rounded-xl text-xs font-semibold bg-[#181B20] text-white hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 mt-4 shadow-2xs cursor-pointer"
             >
               <span>Next: Select Your Interests</span>
               <ArrowRight className="w-4 h-4" />
@@ -168,10 +167,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           /* Step 2: Interests Selection */
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-[#292A28]">
+              <h3 className="text-sm font-bold text-slate-900">
                 2. What opportunities interest you?
               </h3>
-              <p className="text-xs text-[#787774]">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Choose categories to train your personalized recommendation radar.
               </p>
             </div>
@@ -184,10 +183,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     key={interest}
                     type="button"
                     onClick={() => toggleInterest(interest)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
                       isSelected
-                        ? 'bg-[#C96B35] text-white border-[#C96B35] shadow-2xs'
-                        : 'bg-[#FAF8F3] text-[#5C5A56] border-[#E8E5DF] hover:border-[#C96B35]/40'
+                        ? 'bg-[#181B20] text-white border-[#181B20] shadow-2xs'
+                        : 'bg-[#F8F9FA] text-slate-700 border-slate-200/80 hover:border-slate-400'
                     }`}
                   >
                     {isSelected && <Check className="w-3.5 h-3.5" />}
@@ -201,16 +200,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="py-2.5 px-4 rounded-xl text-xs font-semibold text-[#787774] hover:bg-[#FAF8F3]"
+                className="py-2.5 px-4 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={handleFinish}
-                className="flex-1 py-3 rounded-xl text-xs font-bold bg-[#C96B35] text-white hover:bg-[#B85E2B] transition-colors shadow-xs"
+                className="flex-1 py-3 rounded-xl text-xs font-semibold bg-[#181B20] text-white hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
               >
-                Launch Campus Radar
+                Launch MiT Dashboard
               </button>
             </div>
           </div>

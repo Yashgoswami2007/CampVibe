@@ -4,16 +4,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  MapPin,
-  Filter,
-  Sparkles,
   ArrowRight,
-  Flame,
-  CheckCircle2,
 } from 'lucide-react';
 import { CampusAnnouncement, OpportunityFolder, StudentProfile } from '../types';
-import { calculateAnnouncementStatus, formatDate, getDateTile, parseDateSafe } from '../lib/dates';
-import { calculateRelevance } from '../lib/scoring';
+import { formatDate } from '../lib/dates';
 
 interface CalendarPageProps {
   profile: StudentProfile;
@@ -49,11 +43,8 @@ const CALENDAR_FILTERS: CalendarFilterOption[] = [
 ];
 
 export const CalendarPage: React.FC<CalendarPageProps> = ({
-  profile,
   announcements,
-  opportunityStates,
   onSelectAnnouncement,
-  onToggleSave,
 }) => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
   const [selectedFilter, setSelectedFilter] = useState<CalendarFilterOption>('All Events');
@@ -112,15 +103,15 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   // Color helper for category pill
   const getCategoryColor = (cat: string) => {
     const c = cat.toLowerCase();
-    if (c.includes('hackathon') || c.includes('competition')) return 'bg-[#FDF3EB] text-[#C96B35] border-[#F8DCBA]';
-    if (c.includes('intern') || c.includes('placement')) return 'bg-[#EAF5EF] text-[#2D6A4F] border-[#CDE8D8]';
-    if (c.includes('exam') || c.includes('academic')) return 'bg-[#FEF9EE] text-[#8A5A1C] border-[#FBEAC4]';
-    if (c.includes('sport')) return 'bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]';
-    if (c.includes('cultural')) return 'bg-[#FDF4FF] text-[#86198F] border-[#F0ABFC]';
-    return 'bg-[#E8F0FC] text-[#1F5FBF] border-[#CFE0FB]';
+    if (c.includes('hackathon') || c.includes('competition')) return 'bg-[#FBF5E5] text-amber-800 border-amber-200/70';
+    if (c.includes('intern') || c.includes('placement')) return 'bg-[#D4F5EC] text-emerald-800 border-emerald-200/70';
+    if (c.includes('exam') || c.includes('academic')) return 'bg-[#F4F5F8] text-slate-800 border-slate-200';
+    if (c.includes('sport')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (c.includes('cultural')) return 'bg-purple-50 text-purple-700 border-purple-200';
+    return 'bg-[#EBF1FD] text-blue-700 border-blue-200';
   };
 
-  // Week calculation (first 7 days of November or around selectedDate)
+  // Week calculation
   const weekStart = new Date(selectedDateStr);
   const weekDays = Array.from({ length: 7 }).map((_, i) => {
     const d = new Date(weekStart);
@@ -144,28 +135,28 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-[#292A28] tracking-tight flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-[#C96B35]" />
+          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            <CalendarIcon className="w-5 h-5 text-slate-800" />
             <span>Campus Schedule & Master Calendar</span>
           </h2>
-          <p className="text-xs text-[#787774]">
-            Unified view of academic exams, club workshops, hackathons, and registration cutoffs.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Unified view of academic exams, club workshops, hackathons, and cutoffs at MiT Moradabad.
           </p>
         </div>
 
         {/* View Mode & Month Controls */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
           {/* View Switcher */}
-          <div className="flex items-center bg-white border border-[#E0DBD0] p-1 rounded-xl shadow-2xs">
+          <div className="flex items-center bg-[#F8F9FA] border border-slate-200/80 p-1 rounded-xl shadow-2xs">
             {(['month', 'week', 'day'] as const).map((mode) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => setViewMode(mode)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all ${
                   viewMode === mode
-                    ? 'bg-[#292A28] text-white'
-                    : 'text-[#787774] hover:text-[#292A28]'
+                    ? 'bg-[#181B20] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {mode}
@@ -174,22 +165,22 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
           </div>
 
           {/* Month Stepper */}
-          <div className="flex items-center bg-white border border-[#E0DBD0] rounded-xl px-2 py-1 shadow-2xs">
+          <div className="flex items-center bg-[#F8F9FA] border border-slate-200/80 rounded-xl px-2 py-1 shadow-2xs">
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1 rounded-lg text-[#787774] hover:text-[#292A28] hover:bg-[#FAF8F3]"
+              className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
               title="Previous Month"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-xs font-bold text-[#292A28] px-2 whitespace-nowrap">
+            <span className="text-xs font-bold text-slate-800 px-2.5 whitespace-nowrap">
               {monthName}
             </span>
             <button
               type="button"
               onClick={handleNextMonth}
-              className="p-1 rounded-lg text-[#787774] hover:text-[#292A28] hover:bg-[#FAF8F3]"
+              className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
               title="Next Month"
             >
               <ChevronRight className="w-4 h-4" />
@@ -199,7 +190,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
           <button
             type="button"
             onClick={handleJumpToday}
-            className="px-3 py-1.5 rounded-xl bg-[#FAF8F3] border border-[#E0DBD0] hover:bg-[#EFECE6] text-xs font-bold text-[#292A28] transition-colors"
+            className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-2xs transition-colors"
           >
             Today
           </button>
@@ -207,7 +198,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-1.5 bg-white border border-[#E0DBD0] p-2 rounded-2xl overflow-x-auto shadow-2xs">
+      <div className="flex items-center gap-1.5 bg-white border border-slate-200/80 p-2 rounded-2xl overflow-x-auto shadow-2xs">
         {CALENDAR_FILTERS.map((filt) => (
           <button
             key={filt}
@@ -215,8 +206,8 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             onClick={() => setSelectedFilter(filt)}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
               selectedFilter === filt
-                ? 'bg-[#C96B35] text-white shadow-2xs'
-                : 'text-[#787774] hover:text-[#292A28] hover:bg-[#FAF8F3]'
+                ? 'bg-[#181B20] text-white shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             {filt}
@@ -225,26 +216,26 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-[11px] text-[#787774] px-1 flex-wrap">
+      <div className="flex items-center gap-4 text-[11px] text-slate-500 px-1 flex-wrap font-medium">
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#1F5FBF]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
           <span>Scheduled Event</span>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#B42318]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
           <span>Registration Cutoff / Deadline</span>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#2D6A4F]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
           <span>Opportunity & Career Drive</span>
         </span>
       </div>
 
       {/* MAIN VIEW */}
       {viewMode === 'month' && (
-        <div className="bg-white border border-[#E0DBD0] rounded-3xl p-5 shadow-xs space-y-3">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-3">
           {/* Weekday Header */}
-          <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-[#8C8880] pb-2 border-b border-[#F2EFE9]">
+          <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-400 pb-2 border-b border-slate-100">
             <div>Sun</div>
             <div>Mon</div>
             <div>Tue</div>
@@ -258,7 +249,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
           <div className="grid grid-cols-7 gap-2">
             {/* Empty Offset cells */}
             {Array.from({ length: firstDayWeekday }).map((_, i) => (
-              <div key={`offset-${i}`} className="min-h-26 p-2 rounded-2xl bg-[#FAF8F3]/50 border border-transparent" />
+              <div key={`offset-${i}`} className="min-h-26 p-2 rounded-2xl bg-slate-50/40 border border-transparent" />
             ))}
 
             {/* Days of current month */}
@@ -282,22 +273,22 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   }}
                   className={`min-h-26 p-2 rounded-2xl border flex flex-col justify-between transition-all cursor-pointer ${
                     isSelected
-                      ? 'border-[#C96B35] bg-[#FDF3EB]/40 ring-1 ring-[#C96B35]'
+                      ? 'border-slate-800 bg-[#F4F5F8] ring-1 ring-slate-800'
                       : allDayItems.length > 0
-                      ? 'bg-white border-[#E0DBD0] hover:border-[#C96B35]/60 hover:shadow-2xs'
-                      : 'bg-[#FAF8F3] border-[#F2EFE9] text-[#9B9890]'
+                      ? 'bg-white border-slate-200/80 hover:border-slate-400 hover:shadow-2xs'
+                      : 'bg-[#F8F9FA]/60 border-slate-100 text-slate-400'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`font-mono text-xs font-bold ${isSelected ? 'text-[#C96B35]' : 'text-[#292A28]'}`}>
+                    <span className={`font-mono text-xs font-bold ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
                       {dayNum}
                     </span>
                     <div className="flex items-center gap-1">
                       {dayDeadlines.length > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-[#B42318]" title="Deadline on this day" />
+                        <span className="w-2 h-2 rounded-full bg-rose-500" title="Deadline on this day" />
                       )}
                       {dayEvents.length > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-[#1F5FBF]" title="Event on this day" />
+                        <span className="w-2 h-2 rounded-full bg-blue-500" title="Event on this day" />
                       )}
                     </div>
                   </div>
@@ -306,7 +297,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                     {dayDeadlines.slice(0, 1).map((item) => (
                       <div
                         key={`dl-${item.id}`}
-                        className="text-[10px] p-1 rounded-lg bg-[#FDECEA] border border-[#F9D2CE] text-[#B42318] truncate font-bold"
+                        className="text-[10px] p-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 truncate font-semibold"
                         title={`Deadline: ${item.title}`}
                       >
                         ⏰ {item.title}
@@ -322,7 +313,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                       </div>
                     ))}
                     {allDayItems.length > 2 && (
-                      <div className="text-[9px] text-[#C96B35] font-bold">
+                      <div className="text-[9px] text-slate-500 font-bold">
                         +{allDayItems.length - 2} more
                       </div>
                     )}
@@ -336,12 +327,12 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
       {/* WEEK VIEW */}
       {viewMode === 'week' && (
-        <div className="bg-white border border-[#E0DBD0] rounded-3xl p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#F2EFE9]">
-            <span className="text-xs font-bold text-[#292A28]">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <span className="text-xs font-bold text-slate-900">
               Week of {weekDays[0].dateStr} to {weekDays[6].dateStr}
             </span>
-            <span className="text-[11px] text-[#787774]">Click any card to inspect details</span>
+            <span className="text-[11px] text-slate-500 font-medium">Click any card to inspect details</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
@@ -357,15 +348,15 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   onClick={() => setSelectedDateStr(wd.dateStr)}
                   className={`p-3 rounded-2xl border transition-all ${
                     isSelected
-                      ? 'border-[#C96B35] bg-[#FDF3EB]/30'
-                      : 'border-[#EAE6DF] bg-[#FAF8F3]'
+                      ? 'border-slate-800 bg-[#F4F5F8]'
+                      : 'border-slate-200/70 bg-[#F8F9FA]'
                   }`}
                 >
-                  <div className="text-center pb-2 border-b border-[#E0DBD0]">
-                    <span className="text-[10px] uppercase font-bold text-[#8C8880] block">
+                  <div className="text-center pb-2 border-b border-slate-200/80">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
                       {wd.dayName}
                     </span>
-                    <span className="text-base font-extrabold text-[#292A28] font-mono">
+                    <span className="text-base font-extrabold text-slate-900 font-mono">
                       {wd.dayNum}
                     </span>
                   </div>
@@ -379,16 +370,16 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                             e.stopPropagation();
                             onSelectAnnouncement(item);
                           }}
-                          className="p-2 bg-white rounded-xl border border-[#E0DBD0] hover:border-[#C96B35] cursor-pointer shadow-2xs space-y-1"
+                          className="p-2 bg-white rounded-xl border border-slate-200/80 hover:border-slate-400 cursor-pointer shadow-2xs space-y-1"
                         >
-                          <span className="text-[9px] font-bold text-[#C96B35] uppercase block truncate">
+                          <span className="text-[9px] font-bold text-slate-700 uppercase block truncate">
                             {item.category}
                           </span>
-                          <h6 className="text-[11px] font-bold text-[#292A28] leading-tight line-clamp-2">
+                          <h6 className="text-[11px] font-bold text-slate-900 leading-tight line-clamp-2">
                             {item.title}
                           </h6>
                           {item.event_time && (
-                            <span className="text-[10px] text-[#787774] flex items-center gap-1 font-mono">
+                            <span className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
                               <Clock className="w-3 h-3" />
                               {item.event_time}
                             </span>
@@ -396,7 +387,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         </div>
                       ))
                     ) : (
-                      <div className="py-6 text-center text-[10px] text-[#9B9890]">
+                      <div className="py-6 text-center text-[10px] text-slate-400">
                         No items
                       </div>
                     )}
@@ -410,13 +401,13 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
 
       {/* DAY VIEW */}
       {viewMode === 'day' && (
-        <div className="bg-white border border-[#E0DBD0] rounded-3xl p-6 shadow-xs space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-[#F2EFE9]">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <h3 className="text-base font-bold text-[#292A28]">
+              <h3 className="text-base font-bold text-slate-900">
                 Daily Schedule: {formatDate(selectedDateStr, true)}
               </h3>
-              <p className="text-xs text-[#787774]">
+              <p className="text-xs text-slate-500 mt-0.5">
                 {selectedDayItems.length} active announcements / cutoffs for this day
               </p>
             </div>
@@ -425,7 +416,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
               type="date"
               value={selectedDateStr}
               onChange={(e) => setSelectedDateStr(e.target.value)}
-              className="px-3 py-1.5 rounded-xl border border-[#E0DBD0] text-xs text-[#292A28] font-mono focus:outline-none focus:border-[#C96B35]"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-900 font-mono focus:outline-none focus:border-slate-800"
             />
           </div>
 
@@ -433,42 +424,41 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             <div className="space-y-3">
               {selectedDayItems.map((item) => {
                 const isDeadline = item.registration_deadline?.startsWith(selectedDateStr);
-                const isEvent = item.event_date === selectedDateStr;
 
                 return (
                   <div
                     key={item.id}
                     onClick={() => onSelectAnnouncement(item)}
-                    className="p-4 rounded-2xl bg-[#FAF8F3] border border-[#EAE6DF] hover:border-[#C96B35] transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="p-4 rounded-2xl bg-[#F8F9FA] border border-slate-200/70 hover:border-slate-400 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
                     <div className="space-y-1.5 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${isDeadline ? 'bg-[#FDECEA] text-[#B42318]' : 'bg-[#E8F0FC] text-[#1F5FBF]'}`}>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${isDeadline ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-[#EBF1FD] text-blue-700 border border-blue-200'}`}>
                           {isDeadline ? 'Registration Deadline' : 'Scheduled Event'}
                         </span>
-                        <span className="text-xs font-semibold text-[#787774]">{item.category}</span>
-                        <span className="text-[#C4C0B6]">·</span>
-                        <span className="text-xs text-[#787774]">{item.organizer}</span>
+                        <span className="text-xs font-semibold text-slate-500">{item.category}</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-xs text-slate-500">{item.organizer}</span>
                       </div>
 
-                      <h4 className="text-sm font-bold text-[#292A28]">{item.title}</h4>
-                      <p className="text-xs text-[#555] line-clamp-1">{item.description}</p>
+                      <h4 className="text-sm font-bold text-slate-900">{item.title}</h4>
+                      <p className="text-xs text-slate-600 line-clamp-1">{item.description}</p>
                     </div>
 
                     <div className="flex items-center gap-4 shrink-0 text-xs">
                       {item.event_time && (
                         <div className="text-right">
-                          <span className="text-[10px] text-[#8C8880] block">Time</span>
-                          <span className="font-bold text-[#292A28] font-mono">{item.event_time}</span>
+                          <span className="text-[10px] text-slate-400 block font-medium">Time</span>
+                          <span className="font-bold text-slate-900 font-mono">{item.event_time}</span>
                         </div>
                       )}
                       {item.venue && (
                         <div className="text-right">
-                          <span className="text-[10px] text-[#8C8880] block">Location</span>
-                          <span className="font-bold text-[#292A28]">{item.venue}</span>
+                          <span className="text-[10px] text-slate-400 block font-medium">Location</span>
+                          <span className="font-bold text-slate-900">{item.venue}</span>
                         </div>
                       )}
-                      <span className="p-2 rounded-xl bg-white text-[#C96B35] border border-[#E0DBD0]">
+                      <span className="p-2 rounded-xl bg-white text-slate-700 border border-slate-200 shadow-2xs">
                         <ArrowRight className="w-4 h-4" />
                       </span>
                     </div>
@@ -478,9 +468,9 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             </div>
           ) : (
             <div className="p-12 text-center space-y-2">
-              <CalendarIcon className="w-8 h-8 text-[#9B9890] mx-auto" />
-              <p className="text-xs font-bold text-[#292A28]">No campus activities scheduled on this date.</p>
-              <p className="text-[11px] text-[#787774]">Select another date or switch to the Month view.</p>
+              <CalendarIcon className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="text-xs font-bold text-slate-800">No campus activities scheduled on this date.</p>
+              <p className="text-[11px] text-slate-500">Select another date or switch to the Month view.</p>
             </div>
           )}
         </div>
