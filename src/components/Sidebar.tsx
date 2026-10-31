@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Calendar,
   Check,
+  Bot,
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 import { DEMO_PROFILES } from '../lib/seedData';
@@ -36,10 +37,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'home', label: 'Home', icon: Radio, count: null },
     { id: 'explore', label: 'Explore', icon: Compass, count: null },
+    { id: 'calendar', label: 'Calendar', icon: Calendar, count: null },
     { id: 'opportunities', label: 'My Opportunities', icon: BookmarkCheck, count: savedCount > 0 ? savedCount : null },
     { id: 'add', label: 'Add Announcement', icon: PlusCircle, isHighlight: true, count: null },
     { id: 'briefing', label: 'Weekly Briefing', icon: Sparkles, count: null },
     { id: 'interests', label: 'My Interests', icon: Sliders, count: null },
+    { id: 'assistant', label: 'AI Assistant', icon: Bot, isHighlight: false, count: null },
     { id: 'settings', label: 'Settings', icon: Settings, count: null },
   ];
 

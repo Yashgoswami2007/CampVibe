@@ -21,12 +21,20 @@ export function calculateRelevance(
     const term = interest.toLowerCase();
     // Direct category match or textual appearance
     if (
-      announcement.category.toLowerCase() === term ||
+      announcement.category.toLowerCase().includes(term) ||
+      term.includes(announcement.category.toLowerCase()) ||
       announcementText.includes(term) ||
-      (term === 'technology' && (announcementText.includes('coding') || announcementText.includes('software') || announcementText.includes('tech'))) ||
-      (term === 'artificial intelligence' && (announcementText.includes('ai') || announcementText.includes('neural') || announcementText.includes('deep learning'))) ||
-      (term === 'machine learning' && (announcementText.includes('ml') || announcementText.includes('model') || announcementText.includes('dataset'))) ||
-      (term === 'web development' && (announcementText.includes('react') || announcementText.includes('fullstack') || announcementText.includes('frontend') || announcementText.includes('backend')))
+      (term.includes('artificial intelligence') && (announcementText.includes('ai') || announcementText.includes('neural') || announcementText.includes('deep learning') || announcementText.includes('ml') || announcementText.includes('model'))) ||
+      (term.includes('machine learning') && (announcementText.includes('ml') || announcementText.includes('model') || announcementText.includes('dataset') || announcementText.includes('pytorch'))) ||
+      (term.includes('web development') && (announcementText.includes('react') || announcementText.includes('fullstack') || announcementText.includes('frontend') || announcementText.includes('backend') || announcementText.includes('tailwind'))) ||
+      (term.includes('app development') && (announcementText.includes('mobile') || announcementText.includes('android') || announcementText.includes('flutter') || announcementText.includes('ios') || announcementText.includes('app'))) ||
+      (term.includes('data science') && (announcementText.includes('analytics') || announcementText.includes('dataset') || announcementText.includes('sql') || announcementText.includes('python'))) ||
+      (term.includes('cybersecurity') && (announcementText.includes('security') || announcementText.includes('crypto') || announcementText.includes('network') || announcementText.includes('ctf'))) ||
+      (term.includes('competitive programming') && (announcementText.includes('dsa') || announcementText.includes('leetcode') || announcementText.includes('codeforces') || announcementText.includes('algorithm'))) ||
+      (term.includes('hackathon') && (announcementText.includes('hackathon') || announcementText.includes('sprint') || announcementText.includes('prize'))) ||
+      (term.includes('robotics') && (announcementText.includes('robot') || announcementText.includes('hardware') || announcementText.includes('rover') || announcementText.includes('iot'))) ||
+      (term.includes('design') && (announcementText.includes('ui') || announcementText.includes('ux') || announcementText.includes('figma') || announcementText.includes('product design'))) ||
+      (term.includes('workshops') && (announcementText.includes('hands-on') || announcementText.includes('bootcamp') || announcementText.includes('session')))
     ) {
       matchedInterests.push(interest);
     }

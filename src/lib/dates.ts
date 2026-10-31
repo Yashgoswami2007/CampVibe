@@ -1,4 +1,4 @@
-import { CalculatedStatus, CampusAnnouncement, UrgencyLevel } from '../types';
+import { CalculatedStatus, CampusAnnouncement, PriorityOption, UrgencyLevel } from '../types';
 
 export const DEFAULT_TIMEZONE = 'Asia/Kolkata';
 
@@ -174,6 +174,42 @@ export function calculateAnnouncementStatus(
   }
 
   return { urgency, badgeLabel, countdownText, isRegistrationClosed, isEventPassed };
+}
+
+/**
+ * Maps announcement to one of the 7 exact priority options:
+ * 'Critical' | 'Urgent' | 'Upcoming' | 'Today' | 'Normal' | 'Expired' | 'Completed'
+ */
+export function getAnnouncementPriority(
+  announcement: CampusAnnouncement,
+  isCompleted = false,
+  now: Date = getNow()
+): PriorityOption {
+  if (isCompleted || announcement.is_completed) return 'Completed';
+  if (announcement.priority_override) return announcement.priority_override;
+
+  const status = calculateAnnouncementStatus(announcement, now);
+  if (status.urgency === 'expired') return 'Expired';
+
+  const regDeadline = parseDateSafe(announcement.registration_deadline);
+  const nowMs = now.getTime();
+
+  if (regDeadline && !status.isRegistrationClosed) {
+    const diffHours = (regDeadline.getTime() - nowMs) / (1000 * 60 * 60);
+    if (diffHours <= 12 && diffHours > 0) return 'Critical';
+    if (diffHours <= 48 && diffHours > 0) return 'Urgent';
+  }
+
+  const eventDate = parseDateSafe(announcement.event_date, announcement.event_time);
+  if (eventDate) {
+    const diffHours = (eventDate.getTime() - nowMs) / (1000 * 60 * 60);
+    if (diffHours >= -2 && diffHours <= 14) return 'Today';
+  }
+
+  if (status.urgency === 'urgent') return 'Urgent';
+  if (status.urgency === 'upcoming') return 'Upcoming';
+
+  return 'Normal';
 }
 
 /**

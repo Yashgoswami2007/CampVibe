@@ -14,6 +14,9 @@ import {
   HelpCircle,
   Copy,
   PenTool,
+  Upload,
+  Image as ImageIcon,
+  Trash2,
 } from 'lucide-react';
 import { AnnouncementCategory, AnnouncementKind, CampusAnnouncement } from '../types';
 import { checkConflictsAndDuplicates, ConflictNotice } from '../lib/conflicts';
@@ -44,19 +47,27 @@ const SAMPLE_CHIPS = [
 ];
 
 const CATEGORIES: AnnouncementCategory[] = [
+  'Academic',
+  'Examination',
+  'Assignment',
+  'Workshop',
+  'Seminar',
+  'Hackathon',
+  'Competition',
+  'Internship',
+  'Placement',
+  'Cultural Event',
+  'Sports',
+  'Club Activity',
+  'Research',
+  'Scholarship',
+  'General Notice',
+  'Important Announcement',
   'Technology',
   'Artificial Intelligence',
   'Machine Learning',
   'Web Development',
-  'Hackathons',
-  'Internships',
-  'Placements',
   'Entrepreneurship',
-  'Cultural Activities',
-  'Sports',
-  'Research',
-  'Workshops',
-  'Academics',
   'Other',
 ];
 
@@ -66,7 +77,8 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
   onCancel,
 }) => {
   const [inputText, setInputText] = useState('');
-  const [sourceType, setSourceType] = useState<'whatsapp' | 'email' | 'instagram' | 'poster' | 'notice_board'>('whatsapp');
+  const [sourceType, setSourceType] = useState<'whatsapp' | 'email' | 'instagram' | 'poster' | 'notice_board' | 'circular'>('whatsapp');
+  const [posterImage, setPosterImage] = useState<{ data: string; mimeType: string; preview: string; name: string } | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionStep, setExtractionStep] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -76,25 +88,82 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
   const [isManualMode, setIsManualMode] = useState(false);
   const [conflicts, setConflicts] = useState<ConflictNotice[]>([]);
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Please upload an image file (PNG, JPG, WebP).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      const [header, base64] = dataUrl.split(',');
+      const mimeType = header.match(/:(.*?);/)?.[1] || file.type;
+
+      setPosterImage({
+        data: base64,
+        mimeType,
+        preview: dataUrl,
+        name: file.name,
+      });
+      setSourceType('poster');
+      setErrorMsg(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleLoadSamplePoster = () => {
+    // Generate a clean demonstration flyer SVG converted to base64
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+      <rect width="600" height="400" fill="#292A28"/>
+      <rect x="20" y="20" width="560" height="360" rx="16" fill="#FAF8F3" stroke="#C96B35" stroke-width="4"/>
+      <text x="300" y="80" font-family="sans-serif" font-size="24" font-weight="bold" fill="#C96B35" text-anchor="middle">ROBOTICS ROVER GRAND PRIX 2026</text>
+      <text x="300" y="125" font-family="sans-serif" font-size="14" fill="#5C5A56" text-anchor="middle">Organized by Robotics &amp; Mechatronics Society</text>
+      <line x1="60" y1="145" x2="540" y2="145" stroke="#E0DBD0" stroke-width="2"/>
+      <text x="80" y="185" font-family="sans-serif" font-size="15" font-weight="bold" fill="#292A28">Event Date: November 14, 2026 at 9:00 AM</text>
+      <text x="80" y="215" font-family="sans-serif" font-size="15" font-weight="bold" fill="#292A28">Venue: Mechanical Workshop &amp; FabLab, Block D</text>
+      <text x="80" y="245" font-family="sans-serif" font-size="15" font-weight="bold" fill="#B42318">Registration Deadline: November 9, 2026 (6:00 PM)</text>
+      <text x="80" y="275" font-family="sans-serif" font-size="13" fill="#5C5A56">Eligibility: All 2nd, 3rd, and 4th year Mech, ECE &amp; CSE students</text>
+      <text x="80" y="305" font-family="sans-serif" font-size="13" fill="#5C5A56">Required: Form team of 3. Microcontroller kits provided on site.</text>
+      <rect x="80" y="325" width="440" height="32" rx="8" fill="#FDF3EB" stroke="#F8DCBA"/>
+      <text x="300" y="346" font-family="sans-serif" font-size="13" font-weight="bold" fill="#C96B35" text-anchor="middle">Register: https://fablab.campusradar.edu/robotics-sprint</text>
+    </svg>`;
+
+    const base64 = btoa(unescape(encodeURIComponent(svgString)));
+    const dataUrl = `data:image/svg+xml;base64,${base64}`;
+
+    setPosterImage({
+      data: base64,
+      mimeType: 'image/svg+xml',
+      preview: dataUrl,
+      name: 'robotics_rover_poster_2026.svg',
+    });
+    setSourceType('poster');
+    setErrorMsg(null);
+  };
+
   const handleAnalyze = async () => {
-    if (!inputText.trim()) {
-      setErrorMsg('Please paste announcement text before analyzing.');
+    if (!inputText.trim() && !posterImage) {
+      setErrorMsg('Please paste announcement text or upload an event poster image before analyzing.');
       return;
     }
 
     setErrorMsg(null);
     setIsExtracting(true);
-    setExtractionStep('Reading communication & tokenizing...');
+    setExtractionStep(posterImage ? 'Scanning poster with Gemini Multimodal Vision...' : 'Reading communication & tokenizing...');
 
     try {
-      // Step 2 indicator
       setTimeout(() => setExtractionStep('Extracting structured dates, venue, and required actions...'), 700);
 
       const res = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: inputText,
+          text: inputText || 'Extracted from uploaded campus event poster image',
+          image: posterImage ? { data: posterImage.data, mimeType: posterImage.mimeType } : undefined,
           today: '2026-10-31',
           weekday: 'Saturday',
           tz: 'Asia/Kolkata',
@@ -109,16 +178,16 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
 
       const extractedItems = json.data?.items;
       if (!extractedItems || extractedItems.length === 0) {
-        throw new Error(json.data?.not_a_notice_reason || 'This message did not contain a campus announcement or event.');
+        throw new Error(json.data?.not_a_notice_reason || 'This message or poster did not contain an actionable campus announcement.');
       }
 
       const primary = extractedItems[0];
       const newAnnouncement: CampusAnnouncement = {
         id: `ann-${Date.now()}`,
         title: primary.title || 'Untitled Campus Notice',
-        description: primary.description || inputText.slice(0, 250),
+        description: primary.description || inputText.slice(0, 250) || 'Event extracted from poster image.',
         kind: primary.kind || 'event',
-        category: primary.category || 'Academics',
+        category: primary.category || 'Academic',
         organizer: primary.organizer || 'Campus Committee',
         event_date: primary.event_date || null,
         event_time: primary.event_time || null,
@@ -131,11 +200,11 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
         urgency_reason: primary.urgency_reason || null,
         registration_url: primary.registration_url || null,
         tags: primary.tags || [primary.category || 'Campus'],
-        raw_text: inputText,
+        raw_text: inputText || `[Poster OCR Extract: ${posterImage?.name}]`,
         source: sourceType,
         evidence: primary.evidence || {},
         date_resolution: primary.date_resolution || null,
-        confidence: primary.confidence || { overall: 85, date: 'high', venue: 'high', required_action: 'high' },
+        confidence: primary.confidence || { overall: 90, date: 'high', venue: 'high', required_action: 'high' },
         missing_fields: primary.missing_fields || [],
         warnings: primary.warnings || [],
         created_at: new Date().toISOString(),
@@ -216,11 +285,11 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
                 Select Source Channel
               </label>
               <span className="text-[11px] text-[#787774]">
-                Resolves relative terms (e.g. "tomorrow") against Asia/Kolkata
+                Supports text messages, forwarded emails, circulars, and event posters
               </span>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              {(['whatsapp', 'email', 'instagram', 'poster', 'notice_board'] as const).map((src) => (
+              {(['whatsapp', 'email', 'instagram', 'poster', 'circular', 'notice_board'] as const).map((src) => (
                 <button
                   key={src}
                   type="button"
@@ -237,10 +306,71 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
             </div>
           </div>
 
-          {/* Quick Sample Chips */}
+          {/* Poster Upload Dropzone / OCR Area */}
+          <div className="p-4 rounded-2xl bg-[#FAF8F3] border-2 border-dashed border-[#E0DBD0] space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#292A28]">
+                <ImageIcon className="w-4 h-4 text-[#C96B35]" />
+                <span>Upload Event Poster (Gemini Multimodal Vision OCR)</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadSamplePoster}
+                className="text-[11px] font-bold text-[#C96B35] hover:text-[#B85E2B] px-2.5 py-1 rounded-lg bg-[#FDF3EB] border border-[#F8DCBA] transition-colors"
+              >
+                Try Sample Poster Flyer
+              </button>
+            </div>
+
+            {posterImage ? (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-[#E0DBD0]">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={posterImage.preview}
+                    alt="Event Poster Preview"
+                    className="w-16 h-12 object-cover rounded-lg border border-[#EAE6DF]"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-[#292A28] block truncate max-w-xs sm:max-w-md">
+                      {posterImage.name}
+                    </span>
+                    <span className="text-[10px] text-[#2D6A4F] font-semibold">
+                      Poster loaded · Ready for vision OCR extraction
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPosterImage(null)}
+                  className="p-1.5 rounded-lg text-[#787774] hover:text-[#B42318] hover:bg-[#FDECEA]"
+                  title="Remove Poster"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center p-4 rounded-xl bg-white border border-[#EAE6DF] hover:border-[#C96B35]/40 transition-colors cursor-pointer text-center space-y-1">
+                <Upload className="w-5 h-5 text-[#8C8880]" />
+                <span className="text-xs font-bold text-[#292A28]">
+                  Click to browse event flyer or drag & drop poster image
+                </span>
+                <span className="text-[10px] text-[#787774]">
+                  PNG, JPG, WebP supported. AI will extract title, dates, deadlines, and registration URLs.
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+
+          {/* Quick Sample Text Chips */}
           <div>
             <div className="text-[11px] font-bold text-[#8C8880] uppercase tracking-wider mb-2">
-              Try an Example (Instant Hackathon Demo)
+              Or Try a Text Sample (Instant WhatsApp / Circular Demo)
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {SAMPLE_CHIPS.map((chip, idx) => (
@@ -262,10 +392,10 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
           {/* Textarea */}
           <div className="relative">
             <textarea
-              rows={6}
+              rows={5}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Paste unstructured announcement here... (e.g. 'Hey everyone! E-Cell is organizing bootcamp next Friday at 11 AM in Seminar Hall 2. Reg closes tomorrow night...')"
+              placeholder="Paste unstructured announcement message, circular text, email forward, or WhatsApp blast here..."
               className="w-full p-4 rounded-2xl bg-[#FAF8F3] border border-[#E0DBD0] text-sm text-[#292A28] placeholder-[#9B9890] focus:outline-none focus:border-[#C96B35] transition-colors leading-relaxed font-sans"
             />
             <div className="flex items-center justify-between mt-2 text-[11px] text-[#787774]">
@@ -305,7 +435,7 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
             <button
               type="button"
               onClick={handleAnalyze}
-              disabled={isExtracting || !inputText.trim()}
+              disabled={isExtracting || (!inputText.trim() && !posterImage)}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold bg-[#C96B35] text-white hover:bg-[#B85E2B] disabled:opacity-50 transition-colors shadow-sm"
             >
               {isExtracting ? (
@@ -316,7 +446,7 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Analyze Announcement</span>
+                  <span>Analyze {posterImage ? 'Poster & Message' : 'Announcement'}</span>
                 </>
               )}
             </button>
@@ -536,7 +666,20 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
                   </span>
                 </div>
 
-                <div className="p-3 bg-white rounded-2xl border border-[#E0DBD0] font-mono text-xs text-[#333] leading-relaxed max-h-52 overflow-y-auto whitespace-pre-wrap select-text mb-4">
+                {posterImage && (
+                  <div className="mb-3 p-2 bg-white rounded-2xl border border-[#E0DBD0]">
+                    <img
+                      src={posterImage.preview}
+                      alt="Uploaded poster"
+                      className="w-full max-h-48 object-contain rounded-xl bg-black/5"
+                    />
+                    <div className="text-[10px] text-[#787774] text-center mt-1">
+                      Poster Vision Input: {posterImage.name}
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 bg-white rounded-2xl border border-[#E0DBD0] font-mono text-xs text-[#333] leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap select-text mb-4">
                   {extractedData.raw_text}
                 </div>
 

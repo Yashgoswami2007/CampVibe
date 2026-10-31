@@ -45,17 +45,28 @@ const extractionResponseSchema = {
           category: {
             type: Type.STRING,
             enum: [
+              'Academic',
+              'Examination',
+              'Assignment',
+              'Workshop',
+              'Seminar',
+              'Hackathon',
+              'Competition',
+              'Internship',
+              'Placement',
+              'Cultural Event',
+              'Sports',
+              'Club Activity',
+              'Research',
+              'Scholarship',
+              'General Notice',
+              'Important Announcement',
               'Technology',
               'Artificial Intelligence',
               'Machine Learning',
               'Web Development',
-              'Hackathons',
-              'Internships',
-              'Placements',
               'Entrepreneurship',
               'Cultural Activities',
-              'Sports',
-              'Research',
               'Workshops',
               'Academics',
               'Other',
@@ -192,6 +203,28 @@ const digestResponseSchema = {
   required: ['headline', 'summary', 'must_do', 'days', 'heads_up'],
 };
 
+// JSON schema for AI Campus Assistant
+const assistantResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    answer: {
+      type: Type.STRING,
+      description: 'Accurate, clear, friendly answer to the student query based only on the provided campus announcements',
+    },
+    related_announcement_ids: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'IDs of announcements directly relevant to the answer',
+    },
+    suggested_followups: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: '2 to 3 natural follow-up questions',
+    },
+  },
+  required: ['answer', 'related_announcement_ids'],
+};
+
 // Fallback deterministic extraction when Gemini is unreachable or error occurs
 function createFallbackExtraction(text: string, today: string) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -307,6 +340,44 @@ function createFallbackDigest(notices: any[], profile: any, todayStr: string) {
   };
 }
 
+// Fallback deterministic assistant when Gemini is unreachable or error occurs
+function createFallbackAssistant(query: string, announcements: any[], profile: any, todayStr: string) {
+  const q = (query || '').toLowerCase();
+  const matched = announcements.filter(a => {
+    const hay = `${a.title} ${a.category} ${a.description} ${(a.tags || []).join(' ')} ${a.organizer}`.toLowerCase();
+    return q.split(/\s+/).some(term => term.length > 2 && hay.includes(term));
+  });
+
+  const picks = matched.length > 0 ? matched.slice(0, 4) : announcements.slice(0, 3);
+  let answer = '';
+  if (q.includes('today') || q.includes('happening')) {
+    const todayItems = announcements.filter(a => a.event_date === todayStr);
+    if (todayItems.length > 0) {
+      answer = `Here is what is scheduled on campus for today (${todayStr}): ${todayItems.map(i => `"${i.title}" at ${i.venue || 'Campus'}${i.event_time ? ` (${i.event_time})` : ''}`).join(', ')}.`;
+    } else {
+      answer = `There are no events taking place on campus today (${todayStr}), but you have time-critical deadlines approaching shortly like "${picks[0]?.title}".`;
+    }
+  } else if (q.includes('deadline') || q.includes('urgent') || q.includes('close') || q.includes('closing')) {
+    const deadlineItems = [...announcements].filter(a => a.registration_deadline).sort((a, b) => (a.registration_deadline || '').localeCompare(b.registration_deadline || ''));
+    answer = `Here are the top approaching deadlines: ${deadlineItems.slice(0, 3).map(i => `"${i.title}" (cutoff: ${i.registration_deadline})`).join(', ')}.`;
+  } else if (q.includes('intern') || q.includes('placement')) {
+    const careerItems = announcements.filter(a => a.category === 'Internship' || a.category === 'Placement' || a.category === 'Internships' || a.category === 'Placements');
+    answer = `Found ${careerItems.length} active career & placement drives: ${careerItems.map(c => `"${c.title}" organized by ${c.organizer}`).join('; ')}.`;
+  } else {
+    answer = `Based on current campus notices for ${profile?.name || 'you'} (${profile?.department || 'Engineering'}), I found ${picks.length} relevant items: ${picks.map(p => `"${p.title}"`).join(', ')}. Check out the linked cards below!`;
+  }
+
+  return {
+    answer,
+    related_announcement_ids: picks.map(p => p.id),
+    suggested_followups: [
+      'What deadlines are closing in the next 48 hours?',
+      'Show me hackathons and workshops',
+      `Find opportunities for ${profile?.department || 'my department'}`,
+    ],
+  };
+}
+
 async function callGeminiWithRetry(params: any, timeoutMs = 9000, maxRetries = 1): Promise<any> {
   if (!ai) return null;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -331,7 +402,7 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: '10mb' }));
 
   // API Health Check
   app.get('/api/health', (req: Request, res: Response) => {
@@ -347,11 +418,11 @@ async function startServer() {
   // POST /api/extract
   app.post('/api/extract', async (req: Request, res: Response) => {
     try {
-      const { text, today, weekday, tz } = req.body;
+      const { text, image, today, weekday, tz } = req.body;
 
-      if (!text || typeof text !== 'string' || text.trim().length < 5) {
+      if ((!text || typeof text !== 'string' || text.trim().length < 5) && !image) {
         return res.status(400).json({
-          error: 'Please paste a valid announcement or message (at least 5 characters).',
+          error: 'Please paste an announcement message or upload an event poster image.',
         });
       }
 
@@ -361,7 +432,8 @@ async function startServer() {
 
       if (!ai) {
         // Graceful fallback if no Gemini key configured
-        const fallback = createFallbackExtraction(text, effectiveToday);
+        const fallbackText = text || 'Campus Notice Event Poster';
+        const fallback = createFallbackExtraction(fallbackText, effectiveToday);
         return res.json({
           success: true,
           data: fallback,
@@ -370,8 +442,8 @@ async function startServer() {
         });
       }
 
-      const prompt = `You are the lead intelligence parser for Campus Radar at an Indian university.
-Extract structured data from the following raw campus communication.
+      const promptText = `You are the lead intelligence parser for Campus Radar at an Indian university.
+Extract structured data from the following raw campus communication or event poster image.
 
 ANCHOR TIME CONTEXT:
 - Today's date: ${effectiveToday}
@@ -379,21 +451,28 @@ ANCHOR TIME CONTEXT:
 - Reference timezone: ${effectiveTz}
 
 CRITICAL RULES:
-1. Extract information ONLY when supported by the source text.
+1. Extract information ONLY when supported by the source text or poster image.
 2. NEVER invent dates, times, venues, eligibility, or URLs. If a field is not stated, return null.
 3. For every extracted date, time, venue, or required action, provide the verbatim quoted substring in "evidence".
-4. Relative dates: If the text says "tomorrow", resolve against ${effectiveToday} -> 2026-11-01. If it says "next Friday", resolve to the first upcoming Friday after ${effectiveToday}. If the text has a message timestamp like [28/10/26, 9:14 pm], use that as the relative anchor.
+4. Relative dates: If the text says "tomorrow", resolve against ${effectiveToday} -> 2026-11-01. If it says "next Friday", resolve to the first upcoming Friday after ${effectiveToday}.
 5. If the text mentions ambiguous dates or missing links, record them in "warnings" and "missing_fields".
-6. If the text is ordinary chit-chat, a meme, or spam with no actionable event/deadline/announcement, set is_notice: false with a reason.
+6. If the input is ordinary chit-chat, a meme, or spam with no actionable event/deadline/announcement, set is_notice: false with a reason.
 
-RAW TEXT TO PARSE:
-<notice>
-${text.slice(0, 8000)}
-</notice>`;
+${text ? `RAW TEXT TO PARSE:\n<notice>\n${text.slice(0, 8000)}\n</notice>` : 'PARSE THE ATTACHED POSTER IMAGE'}`;
+
+      const contents: any[] = [promptText];
+      if (image && image.data && image.mimeType) {
+        contents.push({
+          inlineData: {
+            data: image.data,
+            mimeType: image.mimeType,
+          },
+        });
+      }
 
       const response = await callGeminiWithRetry({
         model: 'gemini-3.8-flash',
-        contents: prompt,
+        contents,
         config: {
           responseMimeType: 'application/json',
           responseSchema: extractionResponseSchema,
@@ -535,6 +614,95 @@ ${JSON.stringify(compactNotices, null, 2)}`;
         data: fallback,
         is_fallback: true,
         error_message: err?.message || 'Using smart deterministic digest generator.',
+      });
+    }
+  });
+
+  // POST /api/assistant - AI Campus Assistant Q&A
+  app.post('/api/assistant', async (req: Request, res: Response) => {
+    try {
+      const { question, announcements, profile, today } = req.body;
+      const effectiveToday = today || '2026-10-31';
+
+      if (!question || typeof question !== 'string' || question.trim().length === 0) {
+        return res.status(400).json({ error: 'Please provide a question.' });
+      }
+
+      if (!ai) {
+        const fallback = createFallbackAssistant(question, announcements || [], profile, effectiveToday);
+        return res.json({
+          success: true,
+          data: fallback,
+          is_fallback: true,
+        });
+      }
+
+      const compactList = (announcements || []).slice(0, 25).map((a: any) => ({
+        id: a.id,
+        title: a.title,
+        category: a.category,
+        organizer: a.organizer,
+        event_date: a.event_date,
+        event_time: a.event_time,
+        registration_deadline: a.registration_deadline,
+        venue: a.venue,
+        eligibility: a.eligibility,
+        required_action: a.required_action,
+        description: a.description?.slice(0, 150),
+        registration_url: a.registration_url,
+      }));
+
+      const prompt = `You are the AI Campus Assistant for Campus Radar at an Indian engineering university.
+A student is asking you a question about campus announcements, deadlines, hackathons, workshops, placements, or events.
+
+STUDENT PROFILE:
+- Name: ${profile?.name || 'Student'}
+- Department: ${profile?.department || 'Engineering'}
+- Year: ${profile?.academic_year || 'Undergraduate'}
+- Key Interests: ${(profile?.interests || []).join(', ')}
+- Today's date: ${effectiveToday}
+
+QUESTION:
+"${question}"
+
+RULES:
+1. Ground your answer strictly on the provided list of campus notices. Do NOT hallucinate events.
+2. If the user asks what is happening today (${effectiveToday}), check event_date matching ${effectiveToday}.
+3. If they ask about deadlines, focus on registration_deadline values closest to ${effectiveToday}.
+4. Provide a conversational, concise, friendly answer (2-4 sentences max).
+5. In 'related_announcement_ids', return the array of IDs of the notices relevant to your answer.
+
+CAMPUS NOTICES AVAILABLE:
+${JSON.stringify(compactList, null, 2)}`;
+
+      const response = await callGeminiWithRetry({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: assistantResponseSchema,
+        },
+      });
+
+      const rawJson = (response.text || '{}').trim();
+      let parsed;
+      try {
+        parsed = JSON.parse(rawJson);
+      } catch (jsonErr) {
+        parsed = createFallbackAssistant(question, announcements || [], profile, effectiveToday);
+      }
+
+      return res.json({
+        success: true,
+        data: parsed,
+      });
+    } catch (err: any) {
+      console.error('Assistant API error:', err);
+      const fallback = createFallbackAssistant(req.body?.question || '', req.body?.announcements || [], req.body?.profile, req.body?.today || '2026-10-31');
+      return res.json({
+        success: true,
+        data: fallback,
+        is_fallback: true,
       });
     }
   });

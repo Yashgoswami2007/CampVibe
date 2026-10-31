@@ -20,6 +20,7 @@ interface MyOpportunitiesPageProps {
   opportunityStates: Record<string, { folder: OpportunityFolder }>;
   onSelectAnnouncement: (a: CampusAnnouncement) => void;
   onToggleSave: (id: string, folder: OpportunityFolder | null) => void;
+  onShare?: (a: CampusAnnouncement) => void;
   onNavigate: (view: string) => void;
 }
 
@@ -29,6 +30,7 @@ export const MyOpportunitiesPage: React.FC<MyOpportunitiesPageProps> = ({
   opportunityStates,
   onSelectAnnouncement,
   onToggleSave,
+  onShare,
   onNavigate,
 }) => {
   const [activeTab, setActiveTab] = useState<OpportunityFolder>('saved');
@@ -125,6 +127,7 @@ export const MyOpportunitiesPage: React.FC<MyOpportunitiesPageProps> = ({
               currentFolder={activeTab}
               onSelect={onSelectAnnouncement}
               onToggleSave={onToggleSave}
+              onShare={onShare}
             />
           ))}
         </div>

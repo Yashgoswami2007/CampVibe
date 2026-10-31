@@ -1,4 +1,4 @@
-import { CampusAnnouncement, OpportunityFolder, StudentProfile, UserOpportunityState, WeeklyDigest } from '../types';
+import { CampusAnnouncement, CampusNotification, OpportunityFolder, StudentProfile, UserOpportunityState, WeeklyDigest } from '../types';
 import { DEMO_PROFILES, INITIAL_ANNOUNCEMENTS } from './seedData';
 
 const STORAGE_KEYS = {
@@ -8,7 +8,48 @@ const STORAGE_KEYS = {
   DIGEST: 'campus_radar_v1_digest',
   ONBOARDED: 'campus_radar_v1_onboarded',
   ACTIVE_DEMO_ID: 'campus_radar_v1_active_demo_id',
+  NOTIFICATIONS: 'campus_radar_v1_notifications',
+  RECENT_SEARCHES: 'campus_radar_v1_recent_searches',
 };
+
+export const INITIAL_NOTIFICATIONS: CampusNotification[] = [
+  {
+    id: 'notif-1',
+    title: 'Urgent Deadline: National AI Hackathon',
+    message: 'Registrations close tomorrow midnight (Nov 1). Only 60 team slots remaining!',
+    type: 'deadline',
+    announcement_id: 'ann-1',
+    timestamp: '2026-10-31T08:00:00Z',
+    read: false,
+  },
+  {
+    id: 'notif-2',
+    title: 'New Opportunity: Cloud SWE Internship',
+    message: 'T&P Cell posted Summer 2027 Internship with ₹85,000/mo stipend.',
+    type: 'new_announcement',
+    announcement_id: 'ann-3',
+    timestamp: '2026-10-30T14:30:00Z',
+    read: false,
+  },
+  {
+    id: 'notif-3',
+    title: 'Happening Tomorrow: Varsity Cricket Trials',
+    message: 'Open selection trials at 7:30 AM in Main Stadium.',
+    type: 'event',
+    announcement_id: 'ann-6',
+    timestamp: '2026-10-30T17:00:00Z',
+    read: false,
+  },
+  {
+    id: 'notif-4',
+    title: 'Recommended Match: PyTorch & LLM Workshop',
+    message: '92% match with your interests in Artificial Intelligence & Machine Learning.',
+    type: 'recommendation',
+    announcement_id: 'ann-2',
+    timestamp: '2026-10-29T16:00:00Z',
+    read: true,
+  },
+];
 
 // Memory fallback if localStorage is disabled in iframe
 const memoryFallback: Record<string, string> = {};
@@ -155,10 +196,74 @@ export const StorageService = {
     safeSetItem(STORAGE_KEYS.ONBOARDED, value ? 'true' : 'false');
   },
 
+  // Notifications
+  getNotifications(): CampusNotification[] {
+    const raw = safeGetItem(STORAGE_KEYS.NOTIFICATIONS);
+    if (!raw) {
+      this.saveNotifications(INITIAL_NOTIFICATIONS);
+      return INITIAL_NOTIFICATIONS;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : INITIAL_NOTIFICATIONS;
+    } catch {
+      return INITIAL_NOTIFICATIONS;
+    }
+  },
+
+  saveNotifications(notifs: CampusNotification[]): void {
+    safeSetItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
+  },
+
+  markNotificationRead(id: string): CampusNotification[] {
+    const list = this.getNotifications();
+    const updated = list.map(n => (n.id === id ? { ...n, read: true } : n));
+    this.saveNotifications(updated);
+    return updated;
+  },
+
+  markAllNotificationsRead(): CampusNotification[] {
+    const list = this.getNotifications();
+    const updated = list.map(n => ({ ...n, read: true }));
+    this.saveNotifications(updated);
+    return updated;
+  },
+
+  clearNotifications(): CampusNotification[] {
+    this.saveNotifications([]);
+    return [];
+  },
+
+  // Recent Searches
+  getRecentSearches(): string[] {
+    const raw = safeGetItem(STORAGE_KEYS.RECENT_SEARCHES);
+    if (!raw) return ['Hackathons', 'PyTorch', 'Internships', 'Placements', 'Block B'];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : ['Hackathons', 'PyTorch', 'Internships'];
+    } catch {
+      return ['Hackathons', 'PyTorch', 'Internships'];
+    }
+  },
+
+  addRecentSearch(term: string): string[] {
+    if (!term || !term.trim()) return this.getRecentSearches();
+    const clean = term.trim();
+    const current = this.getRecentSearches();
+    const updated = [clean, ...current.filter(t => t.toLowerCase() !== clean.toLowerCase())].slice(0, 8);
+    safeSetItem(STORAGE_KEYS.RECENT_SEARCHES, JSON.stringify(updated));
+    return updated;
+  },
+
+  clearRecentSearches(): void {
+    safeSetItem(STORAGE_KEYS.RECENT_SEARCHES, JSON.stringify([]));
+  },
+
   // Reset to default
   resetToDefaults(): void {
     this.saveAnnouncements(INITIAL_ANNOUNCEMENTS);
     this.saveProfile(DEMO_PROFILES[0]);
+    this.saveNotifications(INITIAL_NOTIFICATIONS);
     safeSetItem(STORAGE_KEYS.OPPORTUNITIES, JSON.stringify([]));
     safeSetItem(STORAGE_KEYS.DIGEST, '');
     this.setOnboarded(true);

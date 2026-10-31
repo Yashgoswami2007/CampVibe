@@ -21,6 +21,7 @@ interface HomeDashboardProps {
   opportunityStates: Record<string, { folder: OpportunityFolder }>;
   onSelectAnnouncement: (a: CampusAnnouncement) => void;
   onToggleSave: (id: string, folder: OpportunityFolder | null) => void;
+  onShare?: (a: CampusAnnouncement) => void;
   onNavigate: (view: string) => void;
 }
 
@@ -30,6 +31,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   opportunityStates,
   onSelectAnnouncement,
   onToggleSave,
+  onShare,
   onNavigate,
 }) => {
   // Sort announcements by personalized relevance score
@@ -55,6 +57,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   // Top recommendations (top 4)
   const topRecommendations = rankedAnnouncements.slice(0, 4);
+
+  // Recently added announcements (newest first)
+  const recentlyAdded = [...announcements]
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    .slice(0, 4);
 
   // Chronological upcoming events
   const chronologicalUpcoming = [...announcements]
@@ -249,6 +256,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               currentFolder={opportunityStates[ann.id]?.folder || null}
               onSelect={onSelectAnnouncement}
               onToggleSave={onToggleSave}
+              onShare={onShare}
             />
           ))}
         </div>
@@ -260,7 +268,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <h3 className="text-base font-extrabold text-[#292A28] tracking-tight">
             Upcoming on Campus
           </h3>
-          <span className="text-xs text-[#787774]">Next 7–14 days</span>
+          <button
+            type="button"
+            onClick={() => onNavigate('calendar')}
+            className="text-xs font-bold text-[#C96B35] hover:text-[#B85E2B] flex items-center gap-1 transition-colors"
+          >
+            <span>Open Calendar</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -272,6 +287,41 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               currentFolder={opportunityStates[ann.id]?.folder || null}
               onSelect={onSelectAnnouncement}
               onToggleSave={onToggleSave}
+              onShare={onShare}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* Recently Added Announcements */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-extrabold text-[#292A28] tracking-tight">
+              Recently Added Announcements
+            </h3>
+            <p className="text-xs text-[#787774]">Latest circulars, notices, and club registrations posted to Campus Radar</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('add')}
+            className="text-xs font-bold text-[#C96B35] hover:text-[#B85E2B] flex items-center gap-1 transition-colors"
+          >
+            <span>+ Ingest Notice</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {recentlyAdded.map((ann) => (
+            <NoticeCard
+              key={`recent-${ann.id}`}
+              announcement={ann}
+              profile={profile}
+              currentFolder={opportunityStates[ann.id]?.folder || null}
+              onSelect={onSelectAnnouncement}
+              onToggleSave={onToggleSave}
+              onShare={onShare}
             />
           ))}
         </div>

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Bookmark, Calendar, Clock, ExternalLink, MapPin, Share2, Sparkles, AlertCircle } from 'lucide-react';
+import { Bookmark, Calendar, Clock, ExternalLink, MapPin, Share2, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { CampusAnnouncement, OpportunityFolder, StudentProfile } from '../types';
-import { calculateAnnouncementStatus, downloadICS, getDateTile } from '../lib/dates';
+import { calculateAnnouncementStatus, downloadICS, getDateTile, getAnnouncementPriority } from '../lib/dates';
 import { calculateRelevance } from '../lib/scoring';
 
 interface NoticeCardProps {
@@ -10,6 +10,7 @@ interface NoticeCardProps {
   currentFolder?: OpportunityFolder | null;
   onSelect: (announcement: CampusAnnouncement) => void;
   onToggleSave: (announcementId: string, folder: OpportunityFolder | null) => void;
+  onShare?: (announcement: CampusAnnouncement) => void;
 }
 
 export const NoticeCard: React.FC<NoticeCardProps> = ({
@@ -18,23 +19,31 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({
   currentFolder,
   onSelect,
   onToggleSave,
+  onShare,
 }) => {
   const status = calculateAnnouncementStatus(announcement);
   const relevance = calculateRelevance(announcement, profile);
   const dateTile = getDateTile(announcement.event_date || announcement.registration_deadline);
+  const priority = getAnnouncementPriority(announcement, currentFolder === 'completed');
 
   const isSaved = Boolean(currentFolder);
 
-  const getUrgencyBadgeStyle = () => {
-    switch (status.urgency) {
-      case 'urgent':
+  const getPriorityBadgeStyle = () => {
+    switch (priority) {
+      case 'Critical':
+        return 'text-[#B42318] bg-[#FDECEA] border-[#F9D2CE] font-bold';
+      case 'Urgent':
         return 'text-[#B42318] bg-[#FDECEA] border-[#F9D2CE]';
-      case 'upcoming':
+      case 'Today':
+        return 'text-[#C96B35] bg-[#FDF3EB] border-[#F8DCBA] font-bold';
+      case 'Upcoming':
         return 'text-[#1F5FBF] bg-[#E8F0FC] border-[#CFE0FB]';
-      case 'expired':
+      case 'Completed':
+        return 'text-[#2D6A4F] bg-[#EAF5EF] border-[#CDE8D8]';
+      case 'Expired':
         return 'text-[#6B7280] bg-[#F3F4F6] border-[#E5E7EB]';
       default:
-        return 'text-[#2D6A4F] bg-[#EAF5EF] border-[#CDE8D8]';
+        return 'text-[#5C5A56] bg-[#FAF8F3] border-[#EAE6DF]';
     }
   };
 
@@ -78,15 +87,20 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({
                 <span className="truncate max-w-[170px]">{announcement.organizer}</span>
               </div>
               <div className="flex items-center gap-2 mt-1">
+                {/* Priority Badge */}
+                <span className={`inline-flex items-center px-2 py-0.5 text-[11px] rounded-md border ${getPriorityBadgeStyle()}`}>
+                  {priority}
+                </span>
+
                 {/* Status Indicator */}
-                <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md border ${getUrgencyBadgeStyle()}`}>
+                <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md border text-[#5C5A56] bg-[#FAF8F3] border-[#E8E5DF]">
                   {status.countdownText}
                 </span>
 
                 {/* Relevance Match Indicator */}
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border ${getRelevanceBadgeStyle()}`}>
                   <Sparkles className="w-3 h-3" />
-                  <span className="font-mono tabular-nums">{relevance.score}%</span> {relevance.tier}
+                  <span className="font-mono tabular-nums">{relevance.score}%</span>
                 </span>
               </div>
             </div>
@@ -153,6 +167,20 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {onShare && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShare(announcement);
+              }}
+              title="Share Announcement Card"
+              className="p-1.5 rounded-lg text-[#787774] hover:text-[#C96B35] hover:bg-[#FDF3EB]"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={(e) => {

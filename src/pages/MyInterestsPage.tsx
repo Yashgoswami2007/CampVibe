@@ -19,20 +19,23 @@ interface MyInterestsPageProps {
   onSelectAnnouncement: (a: CampusAnnouncement) => void;
 }
 
-const ALL_INTERESTS = [
-  'Technology',
-  'Artificial Intelligence',
-  'Machine Learning',
+export const ALL_INTERESTS = [
+  'Artificial Intelligence / ML',
   'Web Development',
+  'App Development',
+  'Data Science',
+  'Cybersecurity',
+  'Competitive Programming',
   'Hackathons',
+  'Entrepreneurship',
   'Internships',
   'Placements',
-  'Entrepreneurship',
-  'Cultural Activities',
-  'Sports',
   'Research',
-  'Workshops',
-  'Academics',
+  'Technical Workshops',
+  'Sports',
+  'Cultural Events',
+  'Robotics',
+  'Design',
 ];
 
 const DEPARTMENTS = [

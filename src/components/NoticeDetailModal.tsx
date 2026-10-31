@@ -11,11 +11,15 @@ import {
   AlertTriangle,
   FileText,
   UserCheck,
+  Share2,
+  Edit3,
+  Trash2,
   Send,
   Download,
+  Heart,
 } from 'lucide-react';
 import { CampusAnnouncement, OpportunityFolder, StudentProfile } from '../types';
-import { calculateAnnouncementStatus, downloadICS, formatDate, getDateTile } from '../lib/dates';
+import { calculateAnnouncementStatus, downloadICS, formatDate, getDateTile, getAnnouncementPriority } from '../lib/dates';
 import { calculateRelevance } from '../lib/scoring';
 
 interface NoticeDetailModalProps {
@@ -24,6 +28,9 @@ interface NoticeDetailModalProps {
   currentFolder?: OpportunityFolder | null;
   onClose: () => void;
   onUpdateFolder: (announcementId: string, folder: OpportunityFolder | null) => void;
+  onEdit?: (announcement: CampusAnnouncement) => void;
+  onDelete?: (id: string) => void;
+  onShare?: (announcement: CampusAnnouncement) => void;
 }
 
 export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
@@ -32,6 +39,9 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
   currentFolder,
   onClose,
   onUpdateFolder,
+  onEdit,
+  onDelete,
+  onShare,
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'source'>('details');
 
@@ -86,6 +96,45 @@ export const NoticeDetailModal: React.FC<NoticeDetailModalProps> = ({
                 Raw Source & Evidence
               </button>
             </div>
+
+            {/* Management Actions */}
+            {onShare && (
+              <button
+                type="button"
+                onClick={() => onShare(announcement)}
+                title="Share Announcement Card"
+                className="p-1.5 rounded-xl text-[#787774] hover:text-[#C96B35] hover:bg-[#FDF3EB] transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+            )}
+
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(announcement)}
+                title="Edit Announcement"
+                className="p-1.5 rounded-xl text-[#787774] hover:text-[#1F5FBF] hover:bg-[#E8F0FC] transition-colors"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+            )}
+
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to delete this announcement?')) {
+                    onDelete(announcement.id);
+                    onClose();
+                  }
+                }}
+                title="Delete Announcement"
+                className="p-1.5 rounded-xl text-[#787774] hover:text-[#B42318] hover:bg-[#FDECEA] transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
 
             <button
               type="button"

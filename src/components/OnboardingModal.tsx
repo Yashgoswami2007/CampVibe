@@ -9,18 +9,22 @@ interface OnboardingModalProps {
 }
 
 const INTEREST_OPTIONS = [
-  'Artificial Intelligence',
-  'Machine Learning',
+  'Artificial Intelligence / ML',
   'Web Development',
+  'App Development',
+  'Data Science',
+  'Cybersecurity',
+  'Competitive Programming',
   'Hackathons',
+  'Entrepreneurship',
   'Internships',
   'Placements',
-  'Entrepreneurship',
-  'Cultural Activities',
-  'Sports',
   'Research',
-  'Workshops',
-  'Academics',
+  'Technical Workshops',
+  'Sports',
+  'Cultural Events',
+  'Robotics',
+  'Design',
 ];
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({

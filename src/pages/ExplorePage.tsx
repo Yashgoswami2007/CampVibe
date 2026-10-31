@@ -21,23 +21,32 @@ interface ExplorePageProps {
   opportunityStates: Record<string, { folder: OpportunityFolder }>;
   onSelectAnnouncement: (a: CampusAnnouncement) => void;
   onToggleSave: (id: string, folder: OpportunityFolder | null) => void;
+  onShare?: (a: CampusAnnouncement) => void;
   initialSearch?: string;
 }
 
 const CATEGORIES: AnnouncementCategory[] = [
+  'Academic',
+  'Examination',
+  'Assignment',
+  'Workshop',
+  'Seminar',
+  'Hackathon',
+  'Competition',
+  'Internship',
+  'Placement',
+  'Cultural Event',
+  'Sports',
+  'Club Activity',
+  'Research',
+  'Scholarship',
+  'General Notice',
+  'Important Announcement',
   'Technology',
   'Artificial Intelligence',
   'Machine Learning',
   'Web Development',
-  'Hackathons',
-  'Internships',
-  'Placements',
   'Entrepreneurship',
-  'Cultural Activities',
-  'Sports',
-  'Research',
-  'Workshops',
-  'Academics',
 ];
 
 export const ExplorePage: React.FC<ExplorePageProps> = ({
@@ -46,14 +55,17 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   opportunityStates,
   onSelectAnnouncement,
   onToggleSave,
+  onShare,
   initialSearch = '',
 }) => {
   const [search, setSearch] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedUrgency, setSelectedUrgency] = useState<string>('All');
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string>('All');
+  const [selectedKind, setSelectedKind] = useState<string>('All');
   const [selectedDept, setSelectedDept] = useState<string>('All');
   const [selectedYear, setSelectedYear] = useState<string>('All');
-  const [sortBy, setSortBy] = useState<'relevant' | 'deadline' | 'date' | 'newest'>('relevant');
+  const [sortBy, setSortBy] = useState<'relevant' | 'priority' | 'deadline' | 'date' | 'newest'>('relevant');
   const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
 
   // Filtered announcements
@@ -69,6 +81,22 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
       // Category
       if (selectedCategory !== 'All' && a.category !== selectedCategory) {
         return false;
+      }
+
+      // Event Kind / Type
+      if (selectedKind !== 'All' && a.kind !== selectedKind) {
+        return false;
+      }
+
+      // Date Filter
+      if (selectedDateFilter !== 'All') {
+        const d = a.event_date || a.registration_deadline?.split(' ')[0];
+        if (!d) return false;
+        if (selectedDateFilter === 'today' && d !== '2026-10-31' && d !== '2026-11-01') return false;
+        if (selectedDateFilter === 'tomorrow' && d !== '2026-11-01' && d !== '2026-11-02') return false;
+        if (selectedDateFilter === 'week' && (d < '2026-10-31' || d > '2026-11-07')) return false;
+        if (selectedDateFilter === 'month' && !d.startsWith('2026-11')) return false;
+        if (selectedDateFilter === 'past' && d >= '2026-10-31') return false;
       }
 
       // Urgency
@@ -100,7 +128,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
 
       return true;
     });
-  }, [announcements, search, selectedCategory, selectedUrgency, selectedDept, selectedYear]);
+  }, [announcements, search, selectedCategory, selectedKind, selectedDateFilter, selectedUrgency, selectedDept, selectedYear]);
 
   // Sorted list
   const sortedList = useMemo(() => {
@@ -109,6 +137,20 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
         const scoreA = calculateRelevance(a, profile).score;
         const scoreB = calculateRelevance(b, profile).score;
         return scoreB - scoreA;
+      }
+      if (sortBy === 'priority') {
+        const priorityOrder: Record<string, number> = {
+          Critical: 6,
+          Urgent: 5,
+          Today: 4,
+          Upcoming: 3,
+          Normal: 2,
+          Completed: 1,
+          Expired: 0,
+        };
+        const pa = priorityOrder[calculateAnnouncementStatus(a).urgency === 'urgent' ? 'Urgent' : 'Normal'] || 0;
+        const pb = priorityOrder[calculateAnnouncementStatus(b).urgency === 'urgent' ? 'Urgent' : 'Normal'] || 0;
+        return pb - pa;
       }
       if (sortBy === 'deadline') {
         const da = a.registration_deadline || '9999';
@@ -129,6 +171,8 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
 
   const activeFiltersCount =
     (selectedCategory !== 'All' ? 1 : 0) +
+    (selectedKind !== 'All' ? 1 : 0) +
+    (selectedDateFilter !== 'All' ? 1 : 0) +
     (selectedUrgency !== 'All' ? 1 : 0) +
     (selectedDept !== 'All' ? 1 : 0) +
     (selectedYear !== 'All' ? 1 : 0) +
@@ -137,6 +181,8 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
   const clearAllFilters = () => {
     setSearch('');
     setSelectedCategory('All');
+    setSelectedKind('All');
+    setSelectedDateFilter('All');
     setSelectedUrgency('All');
     setSelectedDept('All');
     setSelectedYear('All');
@@ -181,7 +227,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
             </button>
           </div>
 
-          {/* Sort Selector */}
+            {/* Sort Selector */}
           <div className="flex items-center bg-white border border-[#E0DBD0] rounded-xl px-2.5 py-1.5 shadow-2xs text-xs">
             <ArrowUpDown className="w-3.5 h-3.5 text-[#8C8880] mr-1.5" />
             <select
@@ -190,6 +236,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
               className="bg-transparent text-[#292A28] font-semibold focus:outline-none cursor-pointer"
             >
               <option value="relevant">Most Relevant</option>
+              <option value="priority">Priority (Critical First)</option>
               <option value="deadline">Deadline Approaching</option>
               <option value="date">Event Date</option>
               <option value="newest">Recently Added</option>
@@ -224,6 +271,33 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
             {CATEGORIES.map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
+          </select>
+
+          {/* Event Type / Kind Dropdown */}
+          <select
+            value={selectedKind}
+            onChange={(e) => setSelectedKind(e.target.value)}
+            className="px-3 py-1.5 rounded-xl border border-[#E0DBD0] bg-white text-[#292A28] font-medium focus:outline-none focus:border-[#C96B35]"
+          >
+            <option value="All">All Event Types</option>
+            <option value="event">Campus Events</option>
+            <option value="deadline">Deadlines</option>
+            <option value="opportunity">Opportunities</option>
+            <option value="announcement">Announcements</option>
+          </select>
+
+          {/* Date Filter Dropdown */}
+          <select
+            value={selectedDateFilter}
+            onChange={(e) => setSelectedDateFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-xl border border-[#E0DBD0] bg-white text-[#292A28] font-medium focus:outline-none focus:border-[#C96B35]"
+          >
+            <option value="All">All Dates</option>
+            <option value="today">Happening Today</option>
+            <option value="tomorrow">Tomorrow</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="past">Past / Concluded</option>
           </select>
 
           {/* Urgency Dropdown */}
@@ -302,6 +376,7 @@ export const ExplorePage: React.FC<ExplorePageProps> = ({
                 currentFolder={opportunityStates[ann.id]?.folder || null}
                 onSelect={onSelectAnnouncement}
                 onToggleSave={onToggleSave}
+                onShare={onShare}
               />
             ))}
           </div>
