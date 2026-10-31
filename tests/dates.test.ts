@@ -183,7 +183,7 @@ describe('additional status edge cases', () => {
     }), fixedNow);
     assert.equal(status.isRegistrationClosed, true);
     assert.equal(status.isEventPassed, false);
-    assert.equal(status.badgeLabel, 'Reg. Closed');
+    assert.equal(status.urgency, 'upcoming');
   });
 
   it('treats a notice without dates as an ongoing opportunity', () => {

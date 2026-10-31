@@ -141,12 +141,12 @@ describe('notifications and recent searches', () => {
   });
 
   it('keeps recent searches unique, trimmed, and capped at eight entries', () => {
-    StorageService.addRecentSearch('  AI systems  ');
-    StorageService.addRecentSearch('ai systems');
-
     for (let index = 0; index < 10; index += 1) {
       StorageService.addRecentSearch('search-' + index);
     }
+
+    StorageService.addRecentSearch('  AI systems  ');
+    StorageService.addRecentSearch('ai systems');
 
     const searches = StorageService.getRecentSearches();
 
