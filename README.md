@@ -22,6 +22,7 @@
 - [System Architecture](#-system-architecture)
 - [Project Structure](#-project-structure)
 - [Installation & Setup](#-installation--setup)
+- [Automated Testing](#-automated-testing)
 - [How to Use & Demonstration Workflows](#-how-to-use--demonstration-workflows)
 - [Screenshots & Demo](#-screenshots--demo)
 - [Security & Privacy](#-security--privacy)
@@ -358,3 +359,26 @@ Developed with ❤️ for the Hackathon by:
 ## 📄 License
 
 This project is licensed under the **Apache License 2.0**. See the source file headers for licensing details.
+
+
+---
+
+## 🧪 Automated Testing
+
+CampVibe uses Node's built-in test runner through the existing `tsx` TypeScript runtime. No separate test framework dependency is required.
+
+Run the unit tests:
+
+```bash
+bun run test
+```
+
+Run the tests with Node's experimental coverage report:
+
+```bash
+bun run test:coverage
+```
+
+The suite currently exercises the date utilities, announcement status and priority calculations, iCalendar generation, duplicate detection, relevance scoring, local storage behavior, opportunity tracking, notifications, recent searches, and backup/restore workflows.
+
+GitHub Actions runs the test and coverage command, TypeScript check, and production build for pushes and pull requests. A passing local suite is not a substitute for checking the CI result on the commit being submitted.
