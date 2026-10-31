@@ -2,5 +2,7 @@
   "name": "Campus Radar",
   "description": "Don't Miss What Matters. Intelligent AI-powered campus opportunity discovery and notice intake platform.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

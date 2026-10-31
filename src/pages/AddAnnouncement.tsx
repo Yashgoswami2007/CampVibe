@@ -105,6 +105,31 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
     reader.readAsDataURL(file);
   };
 
+  const handleLoadPromptWarsPoster = async () => {
+    try {
+      const response = await fetch('/assets/aistudio/image_81909ccd.png');
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const [header, base64] = dataUrl.split(',');
+        const mimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
+        setPosterImage({
+          data: base64,
+          mimeType,
+          preview: dataUrl,
+          name: 'PromptWars_CSSS_BuildWithAI.png',
+        });
+        setSourceType('poster');
+        setErrorMsg(null);
+      };
+      reader.readAsDataURL(blob);
+    } catch (e) {
+      console.error(e);
+      setErrorMsg('Failed to load sample poster.');
+    }
+  };
+
   const handleLoadSamplePoster = () => {
     // Generate a clean demonstration flyer SVG
     const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
@@ -146,13 +171,14 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
     setExtractionStep(posterImage ? 'Scanning poster with Gemini Multimodal Vision...' : 'Reading communication & tokenizing...');
 
     try {
-      setTimeout(() => setExtractionStep('Extracting structured dates, venue, and required actions...'), 700);
+      setTimeout(() => setExtractionStep('Extracting verified dates, venue, organizers, and deadlines...'), 800);
 
+      const trimmedText = inputText.trim();
       const res = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: inputText || 'Extracted from uploaded campus event poster image',
+          text: trimmedText || undefined,
           image: posterImage ? { data: posterImage.data, mimeType: posterImage.mimeType } : undefined,
           today: '2026-10-31',
           weekday: 'Saturday',
@@ -172,13 +198,24 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
       }
 
       const primary = extractedItems[0];
+      const posterDetailsSummary = posterImage ? [
+        `[Poster Vision OCR: ${posterImage.name}]`,
+        `Title: ${primary.title}`,
+        primary.organizer ? `Organizer: ${primary.organizer}` : null,
+        primary.event_date ? `Date: ${primary.event_date} ${primary.event_time ? `(${primary.event_time})` : ''}` : null,
+        primary.venue ? `Venue: ${primary.venue}` : null,
+        primary.registration_deadline ? `Registration Deadline: ${primary.registration_deadline}` : null,
+        primary.required_action ? `Required Action: ${primary.required_action}` : null,
+        primary.description ? `Summary: ${primary.description}` : null,
+      ].filter(Boolean).join('\n') : '';
+
       const newAnnouncement: CampusAnnouncement = {
         id: `ann-${Date.now()}`,
-        title: primary.title || 'Untitled Campus Notice',
-        description: primary.description || inputText.slice(0, 250) || 'Event extracted from poster image.',
+        title: primary.title || (posterImage ? 'Campus Event from Poster' : 'Untitled Campus Notice'),
+        description: primary.description || trimmedText.slice(0, 250) || 'Campus event extracted from poster image.',
         kind: primary.kind || 'event',
-        category: primary.category || 'Academic',
-        organizer: primary.organizer || 'MiT Committee',
+        category: primary.category || 'Hackathon',
+        organizer: primary.organizer || 'Campus Organizer',
         event_date: primary.event_date || null,
         event_time: primary.event_time || null,
         registration_deadline: primary.registration_deadline || null,
@@ -190,11 +227,11 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
         urgency_reason: primary.urgency_reason || null,
         registration_url: primary.registration_url || null,
         tags: primary.tags || [primary.category || 'Campus'],
-        raw_text: inputText || `[Poster OCR Extract: ${posterImage?.name}]`,
+        raw_text: trimmedText || posterDetailsSummary || `[Poster OCR Extract: ${posterImage?.name}]`,
         source: sourceType,
         evidence: primary.evidence || {},
         date_resolution: primary.date_resolution || null,
-        confidence: primary.confidence || { overall: 90, date: 'high', venue: 'high', required_action: 'high' },
+        confidence: primary.confidence || { overall: 95, date: 'high', venue: 'high', required_action: 'high' },
         missing_fields: primary.missing_fields || [],
         warnings: primary.warnings || [],
         created_at: new Date().toISOString(),
@@ -302,13 +339,23 @@ export const AddAnnouncement: React.FC<AddAnnouncementProps> = ({
                 <ImageIcon className="w-4 h-4 text-slate-700" />
                 <span>Upload Event Poster (Gemini Multimodal Vision OCR)</span>
               </div>
-              <button
-                type="button"
-                onClick={handleLoadSamplePoster}
-                className="text-[11px] font-semibold text-slate-800 hover:text-black px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 transition-colors shadow-2xs cursor-pointer"
-              >
-                Try Sample Poster Flyer
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLoadPromptWarsPoster}
+                  className="text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3 text-indigo-600" />
+                  <span>PromptWars × CSSS Poster</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLoadSamplePoster}
+                  className="text-[11px] font-semibold text-slate-800 hover:text-black px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 transition-colors shadow-2xs cursor-pointer"
+                >
+                  Sample Flyer SVG
+                </button>
+              </div>
             </div>
 
             {posterImage ? (

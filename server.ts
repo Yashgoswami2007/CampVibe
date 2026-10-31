@@ -378,35 +378,43 @@ function createFallbackAssistant(query: string, announcements: any[], profile: a
   };
 }
 
-async function callGeminiWithRetry(params: any, timeoutMs = 45000, maxRetries = 1): Promise<any> {
+async function callGeminiWithRetry(params: any, timeoutMs = 12000): Promise<any> {
   if (!ai) return null;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  const requestedModel = params.model || 'gemini-3.8-flash';
+  // Fallback candidate chain: requested model, then gemini-3.1-flash-lite, then gemini-flash-latest
+  const fallbackCandidates = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+  const modelsToTry = [requestedModel, ...fallbackCandidates.filter(m => m !== requestedModel)];
+
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
     let timer: NodeJS.Timeout | null = null;
     try {
       const timeoutPromise = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`Gemini call timed out after ${timeoutMs}ms`)), timeoutMs);
+        timer = setTimeout(() => reject(new Error(`Model ${model} timed out after ${timeoutMs}ms`)), timeoutMs);
       });
-      const callPromise = ai.models.generateContent(params);
+      const callPromise = ai.models.generateContent({
+        ...params,
+        model,
+      });
       const result = await Promise.race([callPromise, timeoutPromise]);
       if (timer) clearTimeout(timer);
       return result;
     } catch (err: any) {
       if (timer) clearTimeout(timer);
-      if (attempt < maxRetries) {
-        console.warn(`[Gemini API] Attempt ${attempt + 1} did not succeed (${err?.message || err}). Retrying in 1000ms...`);
-        await new Promise(r => setTimeout(r, 1000));
-      } else {
-        throw err;
-      }
+      lastError = err;
+      console.warn(`[Gemini API] Call with model ${model} failed (${err?.message || err}). Trying next candidate...`);
     }
   }
+
+  throw lastError;
 }
 
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '15mb' }));
 
   // API Health Check
   app.get('/api/health', (req: Request, res: Response) => {
@@ -414,7 +422,7 @@ async function startServer() {
       status: 'ok',
       service: 'Campus Radar API',
       aiConfigured: Boolean(ai),
-      model: 'gemini-3.8-flash',
+      model: 'gemini-3.8-flash / gemini-3.1-flash-lite',
       serverTime: new Date().toISOString(),
     });
   });
@@ -424,7 +432,7 @@ async function startServer() {
     try {
       const { text, image, today, weekday, tz } = req.body;
 
-      if ((!text || typeof text !== 'string' || text.trim().length < 5) && !image) {
+      if ((!text || typeof text !== 'string' || text.trim().length < 3) && !image) {
         return res.status(400).json({
           error: 'Please paste an announcement message or upload an event poster image.',
         });
@@ -446,8 +454,10 @@ async function startServer() {
         });
       }
 
-      const promptText = `You are the lead intelligence parser for Campus Radar at an Indian university.
-Extract structured data from the following raw campus communication or event poster image.
+      const hasText = text && typeof text === 'string' && text.trim().length > 0 && text.trim() !== 'Extracted from uploaded campus event poster image';
+
+      const promptText = `You are the lead intelligence parser for Campus Radar at an Indian university campus.
+Extract verified, highly structured announcement data from the provided campus communication or event poster image.
 
 ANCHOR TIME CONTEXT:
 - Today's date: ${effectiveToday}
@@ -455,24 +465,33 @@ ANCHOR TIME CONTEXT:
 - Reference timezone: ${effectiveTz}
 
 CRITICAL RULES:
-1. Extract information ONLY when supported by the source text or poster image.
-2. NEVER invent dates, times, venues, eligibility, or URLs. If a field is not stated, return null.
-3. For every extracted date, time, venue, or required action, provide the verbatim quoted substring in "evidence".
-4. Relative dates: If the text says "tomorrow", resolve against ${effectiveToday} -> 2026-11-01. If it says "next Friday", resolve to the first upcoming Friday after ${effectiveToday}.
-5. If the text mentions ambiguous dates or missing links, record them in "warnings" and "missing_fields".
-6. If the input is ordinary chit-chat, a meme, or spam with no actionable event/deadline/announcement, set is_notice: false with a reason.
+1. Multimodal Poster Vision OCR:
+   - Carefully inspect ALL text in the poster image: main title, headings, organizers, sponsor logos (e.g. Google for Developers, CSSS, Hack2skill), event date, event hours, venue, registration deadlines, prizes (e.g. ₹10k+), requirements (GitHub, deployment, laptop), and contact info.
+   - For title: Extract the actual official event title from the poster (e.g., "PromptWars X CSSS: Build with AI 2026"). NEVER output generic placeholders like "Extracted from uploaded campus event poster image".
+   - For organizer: Identify clubs, departments, or organizations mentioned (e.g., "CSSS (Computer Science Students Society) & Hack2skill").
+   - For venue: Extract specific hall/auditorium/building (e.g., "D-Block Auditorium, MIT Moradabad").
+   - For kind: Use "event" for hackathons, workshops, and buildathons; "deadline" for cutoff announcements; "opportunity" for open applications.
+   - For category: Pick the closest category (e.g., "Hackathon", "Workshop", "Technology", "Artificial Intelligence").
+2. Temporal Resolution:
+   - Event Date: If stated as "31 October 2026", resolve to "2026-10-31".
+   - Event Time: e.g. "9 AM - 5 PM".
+   - Registration Deadline: If stated as "31st October 12:00 a.m.", resolve to "2026-10-31 00:00".
+   - If relative (e.g. "today", "tomorrow"), resolve relative to ${effectiveToday}.
+3. Verbatim Evidence Quotes:
+   - For event_date, event_time, venue, registration_deadline, required_action: quote the exact text string as seen in the poster or message.
+4. Confidence Score:
+   - Return overall confidence as an integer between 0 and 100 (e.g., 95).
 
-${text ? `RAW TEXT TO PARSE:\n<notice>\n${text.slice(0, 8000)}\n</notice>` : 'PARSE THE ATTACHED POSTER'}`;
+${hasText ? `ACCOMPANYING TEXT:\n<notice>\n${text.trim().slice(0, 8000)}\n</notice>` : 'NOTE: Extract all announcement details directly from the uploaded poster flyer image.'}`;
 
-      const contents: any[] = [promptText];
+      const parts: any[] = [];
       if (image && image.data && image.mimeType) {
         if (image.mimeType === 'image/svg+xml') {
-          // SVGs are text XML; passing as text prevents raster decoding timeouts
           try {
             const svgContent = Buffer.from(image.data, 'base64').toString('utf-8');
-            contents.push(`\n[EVENT POSTER SVG CONTENT]:\n${svgContent}`);
+            parts.push({ text: `[EVENT POSTER SVG CONTENT]:\n${svgContent}` });
           } catch {
-            contents.push({
+            parts.push({
               inlineData: {
                 data: image.data,
                 mimeType: image.mimeType,
@@ -480,7 +499,7 @@ ${text ? `RAW TEXT TO PARSE:\n<notice>\n${text.slice(0, 8000)}\n</notice>` : 'PA
             });
           }
         } else {
-          contents.push({
+          parts.push({
             inlineData: {
               data: image.data,
               mimeType: image.mimeType,
@@ -488,18 +507,18 @@ ${text ? `RAW TEXT TO PARSE:\n<notice>\n${text.slice(0, 8000)}\n</notice>` : 'PA
           });
         }
       }
+      parts.push({ text: promptText });
 
       const response = await callGeminiWithRetry(
         {
           model: 'gemini-3.8-flash',
-          contents,
+          contents: { parts },
           config: {
             responseMimeType: 'application/json',
             responseSchema: extractionResponseSchema,
           },
         },
-        45000,
-        1
+        12000
       );
 
       const rawJson = (response?.text || '{}').trim();
@@ -507,22 +526,28 @@ ${text ? `RAW TEXT TO PARSE:\n<notice>\n${text.slice(0, 8000)}\n</notice>` : 'PA
       try {
         parsed = JSON.parse(rawJson);
       } catch (jsonErr) {
-        console.warn('Could not parse Gemini JSON response, applying fallback parser');
-        parsed = createFallbackExtraction(text || 'Campus Event Poster Notice', effectiveToday);
+        console.warn('Could not parse Gemini JSON response:', jsonErr);
+        throw new Error('Gemini response could not be parsed as valid announcement JSON.');
       }
 
-      // Evidence verification pass: ensure evidence substrings actually exist in the text
+      // Normalization and evidence verification pass
       if (parsed?.items && Array.isArray(parsed.items)) {
         parsed.items = parsed.items.map((item: any) => {
-          const verifiedEvidence: Record<string, string> = {};
-          if (item.evidence && typeof item.evidence === 'object') {
+          // Normalize confidence overall to 0-100 scale if returned as decimal <= 1
+          if (item.confidence?.overall && item.confidence.overall <= 1 && item.confidence.overall > 0) {
+            item.confidence.overall = Math.round(item.confidence.overall * 100);
+          }
+
+          // If only text was provided (no image), verify evidence quotes exist in text
+          if (!image && hasText && item.evidence && typeof item.evidence === 'object') {
+            const verifiedEvidence: Record<string, string> = {};
             for (const [key, quote] of Object.entries(item.evidence)) {
-              if (typeof quote === 'string' && (text || '').toLowerCase().includes(quote.toLowerCase())) {
+              if (typeof quote === 'string' && text.toLowerCase().includes(quote.toLowerCase())) {
                 verifiedEvidence[key] = quote;
               }
             }
+            item.evidence = verifiedEvidence;
           }
-          item.evidence = verifiedEvidence;
           return item;
         });
       }
@@ -532,19 +557,10 @@ ${text ? `RAW TEXT TO PARSE:\n<notice>\n${text.slice(0, 8000)}\n</notice>` : 'PA
         data: parsed,
       });
     } catch (err: any) {
-      console.warn('Extraction notice:', err?.message || err);
-      // Graceful fallback on API latency or network timeout
-      const fallback = createFallbackExtraction(
-        req.body?.text && req.body.text.trim().length > 10
-          ? req.body.text
-          : 'Robotics Rover Grand Prix 2026\nOrganized by Robotics & Mechatronics Society\nEvent Date: 2026-11-14 at 9:00 AM\nVenue: Mechanical Workshop & FabLab, Block D\nRegistration Deadline: 2026-11-09\nEligibility: All 2nd, 3rd, and 4th year Mech, ECE & CSE students\nRequired: Form team of 3. Microcontroller kits provided on site.\nRegister: https://fablab.campusradar.edu/robotics-sprint',
-        req.body?.today || '2026-10-31'
-      );
-      return res.json({
-        success: true,
-        data: fallback,
-        is_fallback: true,
-        notice: 'Extracted using local intelligent campus parser.',
+      console.warn('Extraction notice error:', err?.message || err);
+      return res.status(500).json({
+        success: false,
+        error: `Vision OCR extraction encountered an issue: ${err?.message || 'Server error'}. Please try again or create the notice manually.`,
       });
     }
   });
@@ -615,8 +631,7 @@ ${JSON.stringify(compactNotices, null, 2)}`;
             responseSchema: digestResponseSchema,
           },
         },
-        45000,
-        1
+        12000
       );
 
       const rawJson = (response?.text || '{}').trim();
@@ -715,8 +730,7 @@ ${JSON.stringify(compactList, null, 2)}`;
             responseSchema: assistantResponseSchema,
           },
         },
-        35000,
-        1
+        12000
       );
 
       const rawJson = (response?.text || '{}').trim();
